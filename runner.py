@@ -4,7 +4,8 @@ from utils import copy_corpus_files, get_edit, apply_morph_edit, write_new_file
 
 CORPUS_DIR = "corpus/"
 WORKSPACE_DIR = "workspace/"
-Q = "Add a simple console.log statement at the beginning of the render method that logs 'Day component rendering' to help with debugging."
+Q1 = "In the isInSelectingRange method, add an early return if the day is disabled when selectsDisabledDaysInRange is false"
+Q = "Refactor the getClassNames method to use a more readable approach by extracting the class conditions into a separate object/map before passing to clsx, while maintaining the exact same functionality."
 
 
 def main():

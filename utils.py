@@ -44,8 +44,32 @@ MORPH_TOOL: ToolParam = {
     },
 }
 SR_TOOL: ToolParam = {
-    "type": "text_editor_20250728",
-    "name": "str_replace_based_edit_tool",
+    "name": "edit_file",
+    "description": "Edit the file by making replacements. CRITICAL: You get ONLY ONE CHANCE to edit - no follow-ups, no corrections. You MUST provide ALL edits as a list of old_string/new_string pairs in a SINGLE tool call. The file will NOT be shown to you again after your edits. Each edit is applied sequentially, so later edits see the results of earlier ones.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "edits": {
+                "type": "array",
+                "description": "List of ALL edits to make. Each edit is applied in order.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "old_string": {
+                            "type": "string",
+                            "description": "The exact string to find and replace. Must be unique and include enough context."
+                        },
+                        "new_string": {
+                            "type": "string",
+                            "description": "The replacement string."
+                        }
+                    },
+                    "required": ["old_string", "new_string"]
+                }
+            }
+        },
+        "required": ["edits"]
+    }
 }
 
 
@@ -64,15 +88,34 @@ def copy_corpus_files(src_dir, dest_dir):
 
 def get_edit(file_contents, request, edit_type):
     """based on a defined edit_type, instruction and file contents, get an llm to generate an edit"""
+    if edit_type == "morph":
+        tool = MORPH_TOOL
+        prompt = f"instruction: {request}\n\n file name: day.tsx \n\n file content: {file_contents}"
+    elif edit_type == "sr":
+        tool = SR_TOOL
+        prompt = (
+            f"Call the edit_file tool to make the required changes. You have been shown the ENTIRE file content.\n"
+            f"CRITICAL INSTRUCTIONS:\n"
+            f"1. You have ONLY ONE CHANCE to edit - no follow-ups, no corrections\n"
+            f"2. You MUST provide ALL necessary edits in a SINGLE tool call\n"
+            f"3. Use the 'edits' array to specify all changes as old_string/new_string pairs\n"
+            f"4. The file will NOT be shown to you again after your edits\n"
+            f"5. Each edit is applied sequentially, so later edits see the results of earlier ones\n\n"
+            f"instruction: {request}\n\n"
+            f"file content:\n{file_contents}"
+        )
+    else:
+        raise ValueError(f"Unknown edit_type: {edit_type}")
+    
     stream_start = time.time()
     stream = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=10000,
-        tools=[MORPH_TOOL],
+        tools=[tool],
         messages=[
             {
                 "role": "user",
-                "content": f"instruction: {request}\n\n file: {file_contents}",
+                "content": prompt,
             }
         ],
         stream=True,
@@ -139,6 +182,53 @@ def apply_morph_edit(edit, initial_code):
     return edited_content
 
 
+def apply_sr_edit(edit, initial_code):
+    """
+    Apply string replacement edits to the initial code.
+    
+    Args:
+        edit: Dictionary containing 'edits' array with old_string/new_string pairs
+        initial_code: The original code to apply edits to
+    
+    Returns:
+        The edited code after applying all successful edits
+    """
+    if "edits" not in edit:
+        print(f"Invalid edit structure. Expected 'edits' key, got: {list(edit.keys())}")
+        return initial_code
+    
+    edits = edit["edits"]
+    if not isinstance(edits, list):
+        print(f"Expected 'edits' to be a list, got: {type(edits)}")
+        return initial_code
+    
+    current_code = initial_code
+    applied_count = 0
+    
+    for i, single_edit in enumerate(edits, 1):
+        if "old_string" not in single_edit or "new_string" not in single_edit:
+            print(f"Edit {i}: Missing required fields. Expected 'old_string' and 'new_string'")
+            break
+        
+        old_str = single_edit["old_string"]
+        new_str = single_edit["new_string"]
+        
+        count = current_code.count(old_str)
+        
+        if count == 0:
+            print(f"Edit {i}: No match found for replacement text")
+            break
+        elif count > 1:
+            print(f"Edit {i}: Found {count} matches for replacement text (expected exactly 1)")
+            break
+        
+        current_code = current_code.replace(old_str, new_str)
+        applied_count += 1
+    
+    print(f"Applied {applied_count} of {len(edits)} edits")
+    return current_code
+
+
 def write_new_file(content, filename, workspace_dir="workspace/"):
     """
     Write the morph response content to a file in the workspace directory.
@@ -163,4 +253,3 @@ def write_new_file(content, filename, workspace_dir="workspace/"):
 
     print(f"Written edited content to {file_path}")
     return file_path
-
