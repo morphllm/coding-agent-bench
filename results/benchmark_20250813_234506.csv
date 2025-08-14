@@ -1,9 +1,0 @@
-benchmark_id,model,file,query_id,method,redundant_tokens,time_generate_ms,time_apply_ms,total_tokens,timestamp
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,add_early_return,morph,45,4829.358816146851,2603.5568714141846,190,2025-08-13T23:44:13.042645
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,add_early_return,search_replace,181,6614.084720611572,0.07915496826171875,277,2025-08-13T23:44:19.657882
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,refactor_classnames,morph,42,7136.4030838012695,2166.692018508911,409,2025-08-13T23:44:28.961941
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,refactor_classnames,search_replace,347,10454.864025115967,0.1308917999267578,726,2025-08-13T23:44:39.418558
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,add_comment,morph,24,5072.106122970581,2113.342046737671,109,2025-08-13T23:44:46.604550
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,add_comment,search_replace,53,4234.206438064575,0.03504753112792969,124,2025-08-13T23:44:50.839096
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,extract_constant,morph,69,6510.7409954071045,2599.7538566589355,249,2025-08-13T23:44:59.950295
-benchmark_1,claude-4,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/day.tsx,extract_constant,search_replace,70,6348.375082015991,0.11229515075683594,137,2025-08-13T23:45:06.299316

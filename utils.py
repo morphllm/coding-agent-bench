@@ -16,7 +16,7 @@ api_key = os.getenv("ANTHROPIC_API_KEY")
 
 client = anthropic.Anthropic(api_key=api_key)
 
-client_openai = OpenAI(
+client_morph = OpenAI(
     api_key=os.getenv("MORPH_API_KEY"),
     base_url="https://api.morphllm.com/v1",
 )
@@ -86,7 +86,7 @@ def copy_corpus_files(src_dir, dest_dir):
             print(f"Copied {src_file} to {dest_file}")
 
 
-def get_edit(file_contents, request, edit_type):
+def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-20250514"):
     """based on a defined edit_type, instruction and file contents, get an llm to generate an edit"""
     if edit_type == "morph":
         tool = MORPH_TOOL
@@ -108,48 +108,71 @@ def get_edit(file_contents, request, edit_type):
         raise ValueError(f"Unknown edit_type: {edit_type}")
 
     stream_start = time.time()
-    stream = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=10000,
-        tools=[tool],
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
+    
+    if "gpt" in model_id:
+        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        openai_tool = {
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool["description"],
+                "parameters": tool["input_schema"]
             }
-        ],
-        stream=True,
-    )
-
-    json_string = ""
-
-    try:
-        for event in stream:
-            # Only print actual content/tool-input deltas
-            delta = getattr(event, "delta", None)
-            if delta is None:
-                continue
-
-            # Text tokens from the assistant
-            text = getattr(delta, "text", None)
-            if text is not None:
-                # print(text, end="", flush=True)
-                continue
-
-            # JSON chunks for tool input (e.g., InputJSONDelta)
-            partial_json = getattr(delta, "partial_json", None)
-            if partial_json is not None:
-                # print(partial_json, end="", flush=True)
-                json_string += partial_json
-                continue
-    finally:
+        }
+        
+        response = openai_client.chat.completions.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}],
+            tools=[openai_tool],
+            tool_choice="required"
+        )
+        
         stream_end = time.time()
-        print(f"Stream completed in {stream_end - stream_start:.2f} seconds")
+        print(f"Completed in {stream_end - stream_start:.2f} seconds")
         print("response parsed")
+        
+        if response.choices[0].message.tool_calls:
+            tool_call = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
+            return tool_call
+        else:
+            raise ValueError("No tool call in OpenAI response")
+    else:
+        stream = client.messages.create(
+            model=model_id,
+            max_tokens=10000,
+            tools=[tool],
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            stream=True,
+        )
 
-    tool_call = json.loads(json_string)
-    # print(tool_call)
-    return tool_call
+        json_string = ""
+
+        try:
+            for event in stream:
+                delta = getattr(event, "delta", None)
+                if delta is None:
+                    continue
+
+                text = getattr(delta, "text", None)
+                if text is not None:
+                    continue
+
+                partial_json = getattr(delta, "partial_json", None)
+                if partial_json is not None:
+                    json_string += partial_json
+                    continue
+        finally:
+            stream_end = time.time()
+            print(f"Stream completed in {stream_end - stream_start:.2f} seconds")
+            print("response parsed")
+
+        tool_call = json.loads(json_string)
+        return tool_call
 
 
 def apply_morph_edit(edit, initial_code):
@@ -161,7 +184,7 @@ def apply_morph_edit(edit, initial_code):
 
     edit_start = time.time()
 
-    response = client_openai.chat.completions.create(
+    response = client_morph.chat.completions.create(
         model="morph-v3-large",
         messages=[
             {
