@@ -7,6 +7,9 @@ import tempfile
 from datetime import datetime
 from typing import Dict, List, Any
 
+# Progress bar library
+from tqdm.auto import tqdm
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import get_edit, apply_morph_edit, apply_sr_edit, verify_update
@@ -30,16 +33,12 @@ class BenchmarkRunner:
         models = self.config.get('models', [])
         test_files = self.config.get('test_files', [])
         
-        print(f"\n{'='*60}")
-        print(f"Running Benchmarks")
-        print(f"Models: {len(models)}, Test Files: {len(test_files)}")
-        print(f"{'='*60}")
         
-        for model in models:
-            print(f"\nModel: {model['name']}")
-            print(f"-" * 40)
-            
-            for test_file in test_files:
+        # Iterate over models with a progress bar
+        for model in tqdm(models, desc="Models"):
+
+            # Iterate over test files with a nested progress bar
+            for test_file in tqdm(test_files, desc="Test Files", leave=False):
                 file_path = os.path.join(self.corpus_dir, test_file['path'])
                 
                 if not os.path.exists(file_path):
@@ -51,9 +50,8 @@ class BenchmarkRunner:
                 
                 filename = os.path.basename(file_path)
                 
-                for query in test_file['queries']:
-                    print(f"\n  Query: {query['id']}")
-                    print(f"  Prompt: {query['prompt'][:80]}...")
+                # Progress bar for queries inside each file
+                for query in tqdm(test_file['queries'], desc=f"{filename} queries", leave=False):
                     
                     self.run_morph_test(
                         model, file_path, filename, 
@@ -70,19 +68,7 @@ class BenchmarkRunner:
         
         summary = self.metrics_collector.generate_summary()
         
-        print(f"\n{'='*60}")
-        print("BENCHMARK SUMMARY")
-        print(f"{'='*60}")
-        
-        for model, methods in summary['summary'].items():
-            print(f"\nModel: {model}")
-            for method, stats in methods.items():
-                print(f"  {method}:")
-                print(f"    Avg Redundant Tokens: {stats['avg_redundant_tokens']:.1f}")
-                print(f"    Avg Generation Time: {stats['avg_time_generate_ms']:.1f}ms")
-                print(f"    Avg Apply Time: {stats['avg_time_apply_ms']:.1f}ms")
-                print(f"    Avg Total Tokens: {stats['avg_total_tokens']:.1f}")
-        
+                
         if summary['comparison']:
             print(f"\n{'='*60}")
             print("COMPARISON (Morph vs Search & Replace)")
@@ -104,7 +90,6 @@ class BenchmarkRunner:
     
     def run_morph_test(self, model: Dict, file_path: str, 
                       filename: str, file_contents: str, query: Dict):
-        print(f"    Running Morph test...")
         
         try:
             generation_timer = Timer()
@@ -147,16 +132,12 @@ class BenchmarkRunner:
             
             self.metrics_collector.add_result(result)
             
-            print(f"      ✓ Morph: {redundant_tokens} redundant tokens, "
-                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply, "
-                  f"correct: {is_correct}")
             
         except Exception as e:
             print(f"      ✗ Morph test failed: {str(e)}")
     
     def run_sr_test(self, model: Dict, file_path: str,
                    filename: str, file_contents: str, query: Dict):
-        print(f"    Running Search & Replace test...")
         
         try:
             generation_timer = Timer()
@@ -199,9 +180,6 @@ class BenchmarkRunner:
             
             self.metrics_collector.add_result(result)
             
-            print(f"      ✓ S&R: {redundant_tokens} redundant tokens, "
-                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply, "
-                  f"correct: {is_correct}")
             
         except Exception as e:
             print(f"      ✗ S&R test failed: {str(e)}")

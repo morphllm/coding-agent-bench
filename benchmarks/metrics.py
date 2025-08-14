@@ -54,7 +54,6 @@ class MetricsCollector:
                 row.pop('response_data')
                 writer.writerow(row)
         
-        print(f"Results saved to {filepath}")
         return filepath
     
     def save_detailed_logs(self):
@@ -64,7 +63,6 @@ class MetricsCollector:
         with open(log_file, 'w') as f:
             json.dump([asdict(r) for r in self.results], f, indent=2)
         
-        print(f"Detailed logs saved to {log_file}")
         return log_file
     
     def generate_summary(self):

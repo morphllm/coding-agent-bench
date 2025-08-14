@@ -85,7 +85,6 @@ def copy_corpus_files(src_dir, dest_dir):
             dest_file = os.path.join(dest_dir, os.path.relpath(src_file, src_dir))
             os.makedirs(os.path.dirname(dest_file), exist_ok=True)
             os.system(f"cp {src_file} {dest_file}")
-            print(f"Copied {src_file} to {dest_file}")
 
 
 def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-20250514"):
@@ -110,7 +109,7 @@ def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-202505
         raise ValueError(f"Unknown edit_type: {edit_type}")
 
     stream_start = time.time()
-    
+
     if "gpt" in model_id:
         openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         openai_tool = {
@@ -118,23 +117,23 @@ def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-202505
             "function": {
                 "name": tool["name"],
                 "description": tool["description"],
-                "parameters": tool["input_schema"]
-            }
+                "parameters": tool["input_schema"],
+            },
         }
-        
+
         response = openai_client.chat.completions.create(
             model=model_id,
             messages=[{"role": "user", "content": prompt}],
             tools=[openai_tool],
-            tool_choice="required"
+            tool_choice="required",
         )
-        
+
         stream_end = time.time()
-        print(f"Completed in {stream_end - stream_start:.2f} seconds")
-        print("response parsed")
-        
+
         if response.choices[0].message.tool_calls:
-            tool_call = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
+            tool_call = json.loads(
+                response.choices[0].message.tool_calls[0].function.arguments
+            )
             return tool_call
         else:
             raise ValueError("No tool call in OpenAI response")
@@ -170,8 +169,6 @@ def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-202505
                     continue
         finally:
             stream_end = time.time()
-            print(f"Stream completed in {stream_end - stream_start:.2f} seconds")
-            print("response parsed")
 
         tool_call = json.loads(json_string)
         return tool_call
@@ -180,9 +177,6 @@ def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-202505
 def apply_morph_edit(edit, initial_code):
     instructions = edit["instructions"]
     code_edit = edit["code_edit"]
-
-    with open("edit.txt", "w") as f:
-        f.write(code_edit)
 
     edit_start = time.time()
 
@@ -197,8 +191,6 @@ def apply_morph_edit(edit, initial_code):
     )
 
     edit_end = time.time()
-
-    print(f"Edit applied in {edit_end - edit_start:.2f} seconds")
 
     # Extract and return the edited content from the response
     edited_content = response.choices[0].message.content
@@ -217,12 +209,10 @@ def apply_sr_edit(edit, initial_code):
         The edited code after applying all successful edits
     """
     if "edits" not in edit:
-        print(f"Invalid edit structure. Expected 'edits' key, got: {list(edit.keys())}")
         return initial_code
 
     edits = edit["edits"]
     if not isinstance(edits, list):
-        print(f"Expected 'edits' to be a list, got: {type(edits)}")
         return initial_code
 
     current_code = initial_code
@@ -252,7 +242,6 @@ def apply_sr_edit(edit, initial_code):
         current_code = current_code.replace(old_str, new_str)
         applied_count += 1
 
-    print(f"Applied {applied_count} of {len(edits)} edits")
     return current_code
 
 
@@ -278,47 +267,42 @@ def write_new_file(content, filename, workspace_dir="workspace/"):
     with open(file_path, "w") as f:
         f.write(content)
 
-    print(f"Written edited content to {file_path}")
     return file_path
 
 
 def verify_update(original_code, edited_code, update_instruction):
-    diff_lines = list(difflib.unified_diff(
-        original_code.splitlines(keepends=True),
-        edited_code.splitlines(keepends=True),
-        fromfile='original',
-        tofile='updated',
-        lineterm=''
-    ))
-    unified_diff = ''.join(diff_lines)
-    
+    diff_lines = list(
+        difflib.unified_diff(
+            original_code.splitlines(keepends=True),
+            edited_code.splitlines(keepends=True),
+            fromfile="original",
+            tofile="updated",
+            lineterm="",
+        )
+    )
+    unified_diff = "".join(diff_lines)
+
     prompt = JUDGMENT_PROMPT.format(
         originalCode=original_code,
         updateInstructions=update_instruction,
-        unifiedDiff=unified_diff
+        unifiedDiff=unified_diff,
     )
-    
+
     try:
         response = client.messages.create(
             model="claude-3-7-sonnet-20250219",
             max_tokens=2000,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
+            messages=[{"role": "user", "content": prompt}],
         )
-        
+
         content = response.content[0].text
-        start_idx = content.find('{')
-        end_idx = content.rfind('}')
+        start_idx = content.find("{")
+        end_idx = content.rfind("}")
         if start_idx != -1 and end_idx != -1:
-            json_str = content[start_idx:end_idx+1]
+            json_str = content[start_idx : end_idx + 1]
             result = json.loads(json_str)
-            return result.get('isCorrect', False)
+            return result.get("isCorrect", False)
         return False
-        
+
     except Exception as e:
-        print(f"Verification failed: {str(e)}")
         return False
