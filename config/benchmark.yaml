@@ -19,14 +19,6 @@ models:
     api_key_env: "OPENAI_API_KEY"
     temperature: 0
     model_id: "gpt-4o-2024-11-20"
-  - name: "gpt-4o"
-    api_key_env: "OPENAI_API_KEY"
-    temperature: 0
-    model_id: "gpt-4o-2024-11-20"
-  - name: "gpt-4o"
-    api_key_env: "OPENAI_API_KEY"
-    temperature: 0
-    model_id: "gpt-4o-2024-11-20"
 
 test_files:
   - path: "corpus/day.tsx"

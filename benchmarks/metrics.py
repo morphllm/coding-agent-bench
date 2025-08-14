@@ -20,6 +20,7 @@ class BenchmarkResult:
     timestamp: str
     query_prompt: str
     response_data: str
+    is_correct: bool = False
 
 class MetricsCollector:
     def __init__(self, output_dir: str = "results/"):
@@ -42,7 +43,7 @@ class MetricsCollector:
             fieldnames = [
                 'benchmark_id', 'model', 'file', 'query_id', 'method',
                 'redundant_tokens', 'time_generate_ms', 'time_apply_ms',
-                'total_tokens', 'timestamp'
+                'total_tokens', 'timestamp', 'is_correct'
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             

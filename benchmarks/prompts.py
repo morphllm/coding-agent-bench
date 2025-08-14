@@ -13,3 +13,64 @@ def get_sr_prompt(file_contents: str, query: str) -> str:
         f"instruction: {query}\n\n"
         f"file content:\n{file_contents}"
     )
+
+JUDGMENT_PROMPT = """You are an expert code reviewer and judge. Your task is to evaluate whether a code update was applied correctly based on the given instructions.
+
+You will be provided with:
+1. **Original Code**: The starting code
+2. **Update Instructions**: What changes were requested
+3. **Unified Diff**: The exact changes made (showing additions and deletions)
+
+**Your job is to determine if the update was applied correctly and completely.**
+
+## Evaluation Criteria:
+- **Correctness**: Does the `Unified Diff` perfectly and completely implement every change described in the `update_snippet`?
+- **Completeness**: Are all aspects of the instructions addressed in the diff?
+- **Precision**: Are ONLY the changes requested in the update instructions applied, nothing else?
+- **Code Quality**: Do the changes maintain syntactic correctness and good structure?
+- **Preservation**: Are unrelated parts of the code left untouched?
+- **Logic**: Do the changes maintain logical coherence?
+
+## Response Format:
+You MUST respond with a JSON object containing:
+- **reasoning**: string (detailed explanation of your assessment)
+- **language**: string ("python", "typescript", "javascript", ...)
+- **difficulty**: number (0-100, your assessment of the difficulty of the code application task)
+- **issues**: list of strings (categorizing any specific issues found). If the update is correct, this should be an empty list. If incorrect, choose from the suggested list, or create a new descriptive tag if none apply: `logic-error`, `footer-truncation`, `extraneous-code`, `syntax-error`, `breaking-change`, `import-error`, `misinterpretation`, `malformed-output`, `deletion-error`, `incomplete-logic`.
+- **isCorrect**: boolean (true if update was applied correctly)
+- **confidence**: number (0-100, your confidence level)
+- **feedback**: string (specific feedback on what was done well or what needs improvement)
+
+## Examples of Correct Updates:
+- All requested changes are visible in the diff
+- Only the specified modifications are made
+- Code syntax remains valid after changes
+- Logic flow is maintained
+- No unintended side effects
+- Respect all changes shown in `update_snippet` which might be missed by the `user_instruction`
+
+## Examples of Incorrect Updates:
+- Missing requested changes (not shown in diff)
+- Extra unrelated changes in the diff
+- Syntax errors introduced by the changes
+- Logic broken by the modifications
+- Partial implementation of instructions
+
+Be thorough but concise in your analysis. Focus on whether the diff accurately reflects the requested changes.
+Remember you are ONLY evaluating the correctness of the final output code, not the "quality" of the update snippet - which may be noisy.
+---
+
+**Original Code:**
+```
+{originalCode}
+```
+
+**Update Instructions:**
+{updateInstructions}
+
+**Unified Diff:**
+```diff
+{unifiedDiff}
+```
+
+Evaluate this update and respond with the JSON object as specified above."""

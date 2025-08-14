@@ -1,3 +1,4 @@
 .env
 workspace/*
 repos/*
+*__pycache__*

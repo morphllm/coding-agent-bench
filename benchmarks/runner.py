@@ -9,7 +9,7 @@ from typing import Dict, List, Any
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import get_edit, apply_morph_edit, apply_sr_edit
+from utils import get_edit, apply_morph_edit, apply_sr_edit, verify_update
 from benchmarks.metrics import MetricsCollector, BenchmarkResult, Timer
 from benchmarks.token_counter import calculate_redundant_tokens_morph, calculate_redundant_tokens_sr
 from benchmarks.prompts import get_morph_prompt, get_sr_prompt
@@ -127,6 +127,8 @@ class BenchmarkRunner:
                 edit_response, model['name']
             )
             
+            is_correct = verify_update(file_contents, edited_content, query['prompt'])
+            
             result = BenchmarkResult(
                 benchmark_id="benchmark",
                 model=model['name'],
@@ -139,13 +141,15 @@ class BenchmarkRunner:
                 total_tokens=total_tokens,
                 timestamp=datetime.now().isoformat(),
                 query_prompt=query['prompt'],
-                response_data=json.dumps(edit_response)
+                response_data=json.dumps(edit_response),
+                is_correct=is_correct
             )
             
             self.metrics_collector.add_result(result)
             
             print(f"      ✓ Morph: {redundant_tokens} redundant tokens, "
-                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply")
+                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply, "
+                  f"correct: {is_correct}")
             
         except Exception as e:
             print(f"      ✗ Morph test failed: {str(e)}")
@@ -175,6 +179,8 @@ class BenchmarkRunner:
                 edit_response, model['name']
             )
             
+            is_correct = verify_update(file_contents, edited_content, query['prompt'])
+            
             result = BenchmarkResult(
                 benchmark_id="benchmark",
                 model=model['name'],
@@ -187,13 +193,15 @@ class BenchmarkRunner:
                 total_tokens=total_tokens,
                 timestamp=datetime.now().isoformat(),
                 query_prompt=query['prompt'],
-                response_data=json.dumps(edit_response)
+                response_data=json.dumps(edit_response),
+                is_correct=is_correct
             )
             
             self.metrics_collector.add_result(result)
             
             print(f"      ✓ S&R: {redundant_tokens} redundant tokens, "
-                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply")
+                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply, "
+                  f"correct: {is_correct}")
             
         except Exception as e:
             print(f"      ✗ S&R test failed: {str(e)}")

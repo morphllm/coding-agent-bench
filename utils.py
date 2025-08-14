@@ -3,12 +3,14 @@ file to dump functions, keep runner clean
 """
 
 import os
+import difflib
 import anthropic
 import dotenv
 from anthropic.types import ToolParam
 import json
 from openai import OpenAI
 import time
+from benchmarks.prompts import JUDGMENT_PROMPT
 
 
 dotenv.load_dotenv()
@@ -278,3 +280,45 @@ def write_new_file(content, filename, workspace_dir="workspace/"):
 
     print(f"Written edited content to {file_path}")
     return file_path
+
+
+def verify_update(original_code, edited_code, update_instruction):
+    diff_lines = list(difflib.unified_diff(
+        original_code.splitlines(keepends=True),
+        edited_code.splitlines(keepends=True),
+        fromfile='original',
+        tofile='updated',
+        lineterm=''
+    ))
+    unified_diff = ''.join(diff_lines)
+    
+    prompt = JUDGMENT_PROMPT.format(
+        originalCode=original_code,
+        updateInstructions=update_instruction,
+        unifiedDiff=unified_diff
+    )
+    
+    try:
+        response = client.messages.create(
+            model="claude-3-7-sonnet-20250219",
+            max_tokens=2000,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+        
+        content = response.content[0].text
+        start_idx = content.find('{')
+        end_idx = content.rfind('}')
+        if start_idx != -1 and end_idx != -1:
+            json_str = content[start_idx:end_idx+1]
+            result = json.loads(json_str)
+            return result.get('isCorrect', False)
+        return False
+        
+    except Exception as e:
+        print(f"Verification failed: {str(e)}")
+        return False
