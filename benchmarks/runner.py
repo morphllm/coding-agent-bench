@@ -1,0 +1,205 @@
+import os
+import sys
+import yaml
+import json
+import shutil
+import tempfile
+from datetime import datetime
+from typing import Dict, List, Any
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils import get_edit, apply_morph_edit, apply_sr_edit
+from benchmarks.metrics import MetricsCollector, BenchmarkResult, Timer
+from benchmarks.token_counter import calculate_redundant_tokens_morph, calculate_redundant_tokens_sr
+from benchmarks.prompts import get_morph_prompt, get_sr_prompt
+
+class BenchmarkRunner:
+    def __init__(self, config_path: str):
+        with open(config_path, 'r') as f:
+            self.config = yaml.safe_load(f)
+        
+        self.metrics_collector = MetricsCollector(
+            output_dir=self.config['benchmarks'][0].get('output_dir', 'results/')
+        )
+        
+        self.workspace_dir = "workspace/"
+        self.corpus_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    def run_benchmark(self, benchmark_config: Dict[str, Any]):
+        benchmark_name = benchmark_config['name']
+        models = benchmark_config['models']
+        test_files = benchmark_config['test_files']
+        
+        print(f"\n{'='*60}")
+        print(f"Running Benchmark: {benchmark_name}")
+        print(f"{'='*60}")
+        
+        for model in models:
+            print(f"\nModel: {model['name']}")
+            print(f"-" * 40)
+            
+            for test_file in test_files:
+                file_path = os.path.join(self.corpus_dir, test_file['path'])
+                
+                if not os.path.exists(file_path):
+                    print(f"Warning: File {file_path} not found, skipping...")
+                    continue
+                
+                with open(file_path, 'r') as f:
+                    file_contents = f.read()
+                
+                filename = os.path.basename(file_path)
+                
+                for query in test_file['queries']:
+                    print(f"\n  Query: {query['id']}")
+                    print(f"  Prompt: {query['prompt'][:80]}...")
+                    
+                    self.run_morph_test(
+                        benchmark_name, model, file_path, filename, 
+                        file_contents, query
+                    )
+                    
+                    self.run_sr_test(
+                        benchmark_name, model, file_path, filename,
+                        file_contents, query
+                    )
+    
+    def run_morph_test(self, benchmark_name: str, model: Dict, file_path: str, 
+                      filename: str, file_contents: str, query: Dict):
+        print(f"    Running Morph test...")
+        
+        try:
+            generation_timer = Timer()
+            generation_timer.start()
+            
+            edit_response = get_edit(file_contents, query['prompt'], "morph")
+            
+            generation_timer.stop()
+            generation_time = generation_timer.get_duration_ms()
+            
+            apply_timer = Timer()
+            apply_timer.start()
+            
+            edited_content = apply_morph_edit(edit_response, file_contents)
+            
+            apply_timer.stop()
+            apply_time = apply_timer.get_duration_ms()
+            
+            redundant_tokens, total_tokens = calculate_redundant_tokens_morph(
+                edit_response, model['name']
+            )
+            
+            result = BenchmarkResult(
+                benchmark_id=benchmark_name,
+                model=model['name'],
+                file=file_path,
+                query_id=query['id'],
+                method="morph",
+                redundant_tokens=redundant_tokens,
+                time_generate_ms=generation_time,
+                time_apply_ms=apply_time,
+                total_tokens=total_tokens,
+                timestamp=datetime.now().isoformat(),
+                query_prompt=query['prompt'],
+                response_data=json.dumps(edit_response)
+            )
+            
+            self.metrics_collector.add_result(result)
+            
+            print(f"      ✓ Morph: {redundant_tokens} redundant tokens, "
+                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply")
+            
+        except Exception as e:
+            print(f"      ✗ Morph test failed: {str(e)}")
+    
+    def run_sr_test(self, benchmark_name: str, model: Dict, file_path: str,
+                   filename: str, file_contents: str, query: Dict):
+        print(f"    Running Search & Replace test...")
+        
+        try:
+            generation_timer = Timer()
+            generation_timer.start()
+            
+            edit_response = get_edit(file_contents, query['prompt'], "sr")
+            
+            generation_timer.stop()
+            generation_time = generation_timer.get_duration_ms()
+            
+            apply_timer = Timer()
+            apply_timer.start()
+            
+            edited_content = apply_sr_edit(edit_response, file_contents)
+            
+            apply_timer.stop()
+            apply_time = apply_timer.get_duration_ms()
+            
+            redundant_tokens, total_tokens = calculate_redundant_tokens_sr(
+                edit_response, model['name']
+            )
+            
+            result = BenchmarkResult(
+                benchmark_id=benchmark_name,
+                model=model['name'],
+                file=file_path,
+                query_id=query['id'],
+                method="search_replace",
+                redundant_tokens=redundant_tokens,
+                time_generate_ms=generation_time,
+                time_apply_ms=apply_time,
+                total_tokens=total_tokens,
+                timestamp=datetime.now().isoformat(),
+                query_prompt=query['prompt'],
+                response_data=json.dumps(edit_response)
+            )
+            
+            self.metrics_collector.add_result(result)
+            
+            print(f"      ✓ S&R: {redundant_tokens} redundant tokens, "
+                  f"{generation_time:.0f}ms gen, {apply_time:.0f}ms apply")
+            
+        except Exception as e:
+            print(f"      ✗ S&R test failed: {str(e)}")
+    
+    def run_all_benchmarks(self):
+        benchmarks = self.config.get('benchmarks', [])
+        
+        for benchmark in benchmarks:
+            self.run_benchmark(benchmark)
+        
+        csv_file = self.metrics_collector.save_to_csv()
+        log_file = self.metrics_collector.save_detailed_logs()
+        
+        summary = self.metrics_collector.generate_summary()
+        
+        print(f"\n{'='*60}")
+        print("BENCHMARK SUMMARY")
+        print(f"{'='*60}")
+        
+        for model, methods in summary['summary'].items():
+            print(f"\nModel: {model}")
+            for method, stats in methods.items():
+                print(f"  {method}:")
+                print(f"    Avg Redundant Tokens: {stats['avg_redundant_tokens']:.1f}")
+                print(f"    Avg Generation Time: {stats['avg_time_generate_ms']:.1f}ms")
+                print(f"    Avg Apply Time: {stats['avg_time_apply_ms']:.1f}ms")
+                print(f"    Avg Total Tokens: {stats['avg_total_tokens']:.1f}")
+        
+        if summary['comparison']:
+            print(f"\n{'='*60}")
+            print("COMPARISON (Morph vs Search & Replace)")
+            print(f"{'='*60}")
+            
+            for model, ratios in summary['comparison'].items():
+                print(f"\nModel: {model}")
+                print(f"  Redundant Tokens Ratio: {ratios['redundant_tokens_ratio']:.2f}x")
+                print(f"  Generation Time Ratio: {ratios['time_generate_ratio']:.2f}x")
+                print(f"  Apply Time Ratio: {ratios['time_apply_ratio']:.2f}x")
+                print(f"  Total Tokens Ratio: {ratios['total_tokens_ratio']:.2f}x")
+        
+        print(f"\n{'='*60}")
+        print(f"Results saved to: {csv_file}")
+        print(f"Detailed logs saved to: {log_file}")
+        print(f"{'='*60}\n")
+        
+        return csv_file, log_file, summary

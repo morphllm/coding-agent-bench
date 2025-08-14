@@ -1,0 +1,21 @@
+benchmarks:
+  - name: "benchmark_1"
+    models:
+      - name: "claude-4"
+        api_key_env: "ANTHROPIC_API_KEY"
+        temperature: 0
+        model_id: "claude-sonnet-4-20250514"
+    
+    test_files:
+      - path: "corpus/day.tsx"
+        queries:
+          - id: "add_early_return"
+            prompt: "In the isInSelectingRange method, add an early return if the day is disabled when selectsDisabledDaysInRange is false"
+          - id: "refactor_classnames"
+            prompt: "Refactor the getClassNames method to use a more readable approach by extracting the class conditions into a separate object/map before passing to clsx, while maintaining the exact same functionality."
+          - id: "add_comment"
+            prompt: "Add a comment at the beginning of the handleClick method explaining what it does"
+          - id: "extract_constant"
+            prompt: "Extract the string 'react-datepicker__day' into a constant at the top of the file called DAY_CLASS_NAME"
+    
+    output_dir: "results/"
