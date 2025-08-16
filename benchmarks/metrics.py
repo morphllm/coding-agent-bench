@@ -90,6 +90,7 @@ class MetricsCollector:
                         "avg_time_generate_ms": sum(r.time_generate_ms for r in method_results) / len(method_results),
                         "avg_time_apply_ms": sum(r.time_apply_ms for r in method_results) / len(method_results),
                         "avg_total_tokens": sum(r.total_tokens for r in method_results) / len(method_results),
+                        "success_rate": sum(1 for r in method_results if r.is_correct) / len(method_results),
                         "num_samples": len(method_results)
                     }
         

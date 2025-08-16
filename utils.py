@@ -10,7 +10,10 @@ from anthropic.types import ToolParam
 import json
 from openai import OpenAI
 import time
+import random
 from benchmarks.prompts import JUDGMENT_PROMPT
+from google import genai
+from google.genai import types
 
 
 dotenv.load_dotenv()
@@ -74,6 +77,18 @@ SR_TOOL: ToolParam = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# Gemini helpers
+# ---------------------------------------------------------------------------
+
+def _convert_tool_for_gemini(tool_def: dict) -> dict:
+    """Convert our existing tool spec to Gemini function declaration format."""
+    return {
+        "name": tool_def["name"],
+        "description": tool_def["description"],
+        "parameters": tool_def["input_schema"],
+    }
+
 
 def copy_corpus_files(src_dir, dest_dir):
     """
@@ -110,7 +125,8 @@ def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-202505
 
     stream_start = time.time()
 
-    if "gpt" in model_id:
+    # Treat OpenAI models that are either prefixed with 'gpt' or shorthand like 'o3', 'o4-mini', this is some questionable code that might cause issues
+    if model_id.startswith("o") or "gpt" in model_id:
         openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         openai_tool = {
             "type": "function",
@@ -121,7 +137,8 @@ def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-202505
             },
         }
 
-        response = openai_client.chat.completions.create(
+        response = _retry_on_429(
+            openai_client.chat.completions.create,
             model=model_id,
             messages=[{"role": "user", "content": prompt}],
             tools=[openai_tool],
@@ -137,8 +154,41 @@ def get_edit(file_contents, request, edit_type, model_id="claude-sonnet-4-202505
             return tool_call
         else:
             raise ValueError("No tool call in OpenAI response")
+    elif "gemini" in model_id:
+        # ------------------------------------------------------------------
+        # Google Gemini path
+        # ------------------------------------------------------------------
+        tool = MORPH_TOOL if edit_type == "morph" else SR_TOOL
+
+        function_declarations = [_convert_tool_for_gemini(tool)]
+        gemini_tool = types.Tool(function_declarations=function_declarations)
+        config = types.GenerateContentConfig(tools=[gemini_tool])
+
+        genai_client = genai.Client()
+
+        response = _retry_on_429(
+            genai_client.models.generate_content,
+            model=model_id,
+            contents=prompt,
+            config=config,
+        )
+
+        # Gemini returns a list of parts; the first part may contain the function_call
+        parts = response.candidates[0].content.parts  # type: ignore[attr-defined]
+        if parts and hasattr(parts[0], "function_call") and parts[0].function_call:
+            fc = parts[0].function_call  # type: ignore[attr-defined]
+            args = fc.args  # May already be dict
+            # If args is a string, attempt to parse JSON
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except Exception:
+                    pass
+            return args
+        raise ValueError("No tool call in Gemini response")
     else:
-        stream = client.messages.create(
+        stream = _retry_on_429(
+            client.messages.create,
             model=model_id,
             max_tokens=10000,
             tools=[tool],
@@ -180,7 +230,8 @@ def apply_morph_edit(edit, initial_code):
 
     edit_start = time.time()
 
-    response = client_morph.chat.completions.create(
+    response = _retry_on_429(
+        client_morph.chat.completions.create,
         model="morph-v3-large",
         messages=[
             {
@@ -287,25 +338,45 @@ def verify_update(original_code, edited_code, update_instruction):
 
     prompt = JUDGMENT_PROMPT.format(
         originalCode=original_code,
-        updateInstructions=update_instruction,
+        updatedCode=edited_code,
         unifiedDiff=unified_diff,
+        updateInstructions=update_instruction,
     )
 
     try:
-        response = client.messages.create(
+        response = _retry_on_429(
+            client.messages.create,
             model="claude-3-7-sonnet-20250219",
-            max_tokens=2000,
+            max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         )
 
-        content = response.content[0].text
-        start_idx = content.find("{")
-        end_idx = content.rfind("}")
-        if start_idx != -1 and end_idx != -1:
-            json_str = content[start_idx : end_idx + 1]
-            result = json.loads(json_str)
-            return result.get("isCorrect", False)
+        verdict = response.content[0].text.strip().lower()
+        return verdict.startswith("true")
+
+    except Exception:
         return False
 
-    except Exception as e:
-        return False
+###########################################################################
+# Retry helper: wait 2–3 minutes on HTTP 429 (rate-limit) then retry
+###########################################################################
+
+
+def _retry_on_429(callable_fn, *args, **kwargs):
+    """Invoke *callable_fn* with retry on HTTP 429.
+
+    Sleeps a random 120-180 s before retrying. Retries indefinitely until a
+    non-429 response or another exception occurs.
+    """
+
+    while True:
+        try:
+            return callable_fn(*args, **kwargs)
+        except Exception as exc:  # OpenAI & Morph both raise OpenAI-style errors
+            status = getattr(exc, "status_code", None)
+            if status == 429 or exc.__class__.__name__ == "RateLimitError":
+                delay = random.randint(120, 180)
+                print(f"Rate-limit (429) hit – sleeping {delay}s then retrying…")
+                time.sleep(delay)
+                continue
+            raise

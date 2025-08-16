@@ -1,5 +1,5 @@
 def get_morph_prompt(file_contents: str, filename: str, query: str) -> str:
-    return f"instruction: {query}\n\nfile name: {filename}\n\nfile content: {file_contents}"
+    return f"Call the morph tool to make the required changes. You must provide ALL edits in a SINGLE tool call. The file will NOT be shown to you again after your edits, do not look for confirmation or ask clarifications. Instruction: {query}\n\nfile name: {filename}\n\nfile content: {file_contents}"
 
 def get_sr_prompt(file_contents: str, query: str) -> str:
     return (
@@ -14,61 +14,34 @@ def get_sr_prompt(file_contents: str, query: str) -> str:
         f"file content:\n{file_contents}"
     )
 
-JUDGMENT_PROMPT = """You are an expert code reviewer and judge. Your task is to evaluate whether a code update was applied correctly based on the given instructions.
+JUDGMENT_PROMPT = """You are an expert code reviewer and judge.
 
-You will be provided with:
-1. **Original Code**: The starting code
-2. **Update Instructions**: What changes were requested
-3. **Unified Diff**: The exact changes made (showing additions and deletions)
+Your task: Decide if a patch (shown as a unified diff) has been applied **correctly** to the original code and produced the updated code.
+Use the **Update Instructions** only when the diff location or intent is ambiguous.
 
-**Your job is to determine if the update was applied correctly and completely.**
+Output format:
+Return ONLY one word on a single line:
+TRUE  – if the update is correct.
+FALSE – otherwise.
+No additional text.
 
-## Evaluation Criteria:
-- **Correctness**: Does the `Unified Diff` perfectly and completely implement every change described in the `update_snippet`?
-- **Precision**: Are ONLY the changes requested in the update instructions applied, nothing else?
-- **Code Quality**: Do the changes maintain syntactic correctness?
-- **Preservation**: Are unrelated parts of the code left untouched?
+Inputs
+------
+UPDATE INSTRUCTIONS (for clarification only):
+{updateInstructions}
 
-## Response Format:
-You MUST respond with a JSON object containing:
-- **reasoning**: string (detailed explanation of your assessment)
-- **language**: string ("python", "typescript", "javascript", ...)
-- **difficulty**: number (0-100, your assessment of the difficulty of the code application task)
-- **issues**: list of strings (categorizing any specific issues found). If the update is correct, this should be an empty list. If incorrect, choose from the suggested list, or create a new descriptive tag if none apply: `logic-error`, `footer-truncation`, `extraneous-code`, `syntax-error`, `breaking-change`, `import-error`, `misinterpretation`, `malformed-output`, `deletion-error`, `incomplete-logic`.
-- **isCorrect**: boolean (true if update was applied correctly)
-- **confidence**: number (0-100, your confidence level)
-- **feedback**: string (specific feedback on what was done well or what needs improvement)
-
-## Examples of Correct Updates:
-- All requested changes are visible in the diff
-- Only the specified modifications are made
-- Code syntax remains valid after changes
-- Logic flow is maintained
-- No unintended side effects
-- Respect all changes shown in `update_snippet` which might be missed by the `user_instruction`
-
-## Examples of Incorrect Updates:
-- Missing requested changes (not shown in diff)
-- Extra unrelated changes in the diff
-- Syntax errors introduced by the changes
-- Logic broken by the modifications
-- Partial implementation of instructions
-
-Be thorough but concise in your analysis. Focus on whether the diff accurately reflects the requested changes.
-Remember you are ONLY evaluating the correctness of the final output code, not the "quality" of the update snippet - which may be noisy.
----
-
-**Original Code:**
+ORIGINAL CODE:
 ```
 {originalCode}
 ```
 
-**Update Instructions:**
-{updateInstructions}
+UPDATED CODE:
+```
+{updatedCode}
+```
 
-**Unified Diff:**
+UNIFIED DIFF:
 ```diff
 {unifiedDiff}
 ```
-
-Evaluate this update and respond with the JSON object as specified above."""
+"""

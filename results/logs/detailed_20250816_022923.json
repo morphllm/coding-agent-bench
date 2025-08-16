@@ -1,0 +1,62 @@
+[
+  {
+    "benchmark_id": "benchmark",
+    "model": "gemini-flash-2.5",
+    "file": "/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc",
+    "query_id": "visualizer_background_color",
+    "method": "morph",
+    "redundant_tokens": 33,
+    "time_generate_ms": 1995.7821369171143,
+    "time_apply_ms": 2991.895914077759,
+    "total_tokens": 62,
+    "timestamp": "2025-08-16T02:28:58.999273",
+    "query_prompt": "Change the background color to black instead of the current dark blue.",
+    "response_data": "{\"code_edit\": \"// ... existing code ...\\n    sf::Color bg = sf::Color(0, 0, 0);\\n// ... existing code ...\", \"target_file\": \"day.tsx\", \"instructions\": \"I will change the background color in VisualizerConfig to black.\"}",
+    "is_correct": true
+  },
+  {
+    "benchmark_id": "benchmark",
+    "model": "gemini-flash-2.5",
+    "file": "/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc",
+    "query_id": "visualizer_background_color",
+    "method": "search_replace",
+    "redundant_tokens": 33,
+    "time_generate_ms": 2055.417776107788,
+    "time_apply_ms": 0.06103515625,
+    "total_tokens": 51,
+    "timestamp": "2025-08-16T02:29:06.533100",
+    "query_prompt": "Change the background color to black instead of the current dark blue.",
+    "response_data": "{\"edits\": [{\"old_string\": \"sf::Color bg = sf::Color(10, 12, 20);\", \"new_string\": \"sf::Color bg = sf::Color(0, 0, 0);\"}]}",
+    "is_correct": true
+  },
+  {
+    "benchmark_id": "benchmark",
+    "model": "gemini-pro-2.5",
+    "file": "/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc",
+    "query_id": "visualizer_background_color",
+    "method": "morph",
+    "redundant_tokens": 59,
+    "time_generate_ms": 15030.596017837524,
+    "time_apply_ms": 2561.859130859375,
+    "total_tokens": 135,
+    "timestamp": "2025-08-16T02:29:11.092476",
+    "query_prompt": "Change the background color to black instead of the current dark blue.",
+    "response_data": "{\"instructions\": \"I will change the `bg` color value in the `VisualizerConfig` struct from a dark blue to black by setting the RGB values to (0, 0, 0).\", \"code_edit\": \"// ... existing code ...\\n    bool showGrid = true;\\n    sf::Color bg = sf::Color(0, 0, 0);\\n    sf::Color pointColor = sf::Color(240, 240, 255);\\n    sf::Color axisColor = sf::Color(120, 120, 140);\\n// ... existing code ...\", \"target_file\": \"day.tsx\"}",
+    "is_correct": true
+  },
+  {
+    "benchmark_id": "benchmark",
+    "model": "gemini-pro-2.5",
+    "file": "/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc",
+    "query_id": "visualizer_background_color",
+    "method": "search_replace",
+    "redundant_tokens": 33,
+    "time_generate_ms": 6362.161874771118,
+    "time_apply_ms": 0.030040740966796875,
+    "total_tokens": 51,
+    "timestamp": "2025-08-16T02:29:23.421787",
+    "query_prompt": "Change the background color to black instead of the current dark blue.",
+    "response_data": "{\"edits\": [{\"new_string\": \"sf::Color bg = sf::Color(0, 0, 0);\", \"old_string\": \"sf::Color bg = sf::Color(10, 12, 20);\"}]}",
+    "is_correct": true
+  }
+]

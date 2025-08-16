@@ -70,11 +70,15 @@ class BenchmarkRunner:
             print(f"{'='*60}")
 
             for model, ratios in summary['comparison'].items():
+                morph = summary['summary'][model]['morph']
+                sr = summary['summary'][model]['search_replace']
+
+                percent = ratios['redundant_tokens_ratio'] * 100 if ratios['redundant_tokens_ratio'] else 0
+
                 print(f"\nModel: {model}")
-                print(f"  Redundant Tokens Ratio: {ratios['redundant_tokens_ratio']:.2f}x")
-                print(f"  Generation Time Ratio: {ratios['time_generate_ratio']:.2f}x")
-                print(f"  Apply Time Ratio: {ratios['time_apply_ratio']:.2f}x")
-                print(f"  Total Tokens Ratio: {ratios['total_tokens_ratio']:.2f}x")
+                print(f"  Using Morph creates {percent:.1f}% the number of redundant tokens as Search & Replace.")
+                print(f"  Morph – Avg Total Tokens: {morph['avg_total_tokens']:.1f}, Redundant Tokens: {morph['avg_redundant_tokens']:.1f}, Generate Time: {morph['avg_time_generate_ms']:.1f} ms, Apply Time: {morph['avg_time_apply_ms']:.1f} ms, Success: {morph['success_rate']*100:.1f}%")
+                print(f"  S&R  – Avg Total Tokens: {sr['avg_total_tokens']:.1f}, Redundant Tokens: {sr['avg_redundant_tokens']:.1f}, Generate Time: {sr['avg_time_generate_ms']:.1f} ms, Apply Time: {sr['avg_time_apply_ms']:.1f} ms, Success: {sr['success_rate']*100:.1f}%")
 
         print(f"\n{'='*60}")
         print(f"Results saved to: {csv_file}")
