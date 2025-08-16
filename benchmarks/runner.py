@@ -7,8 +7,8 @@ import tempfile
 from datetime import datetime
 from typing import Dict, List, Any
 
-# Progress bar library
-from tqdm.auto import tqdm
+# Concurrency
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -32,61 +32,73 @@ class BenchmarkRunner:
     def run_all_benchmarks(self):
         models = self.config.get('models', [])
         test_files = self.config.get('test_files', [])
-        
-        
-        # Iterate over models with a progress bar
-        for model in tqdm(models, desc="Models"):
 
-            # Iterate over test files with a nested progress bar
-            for test_file in tqdm(test_files, desc="Test Files", leave=False):
-                file_path = os.path.join(self.corpus_dir, test_file['path'])
-                
-                if not os.path.exists(file_path):
-                    print(f"Warning: File {file_path} not found, skipping...")
-                    continue
-                
-                with open(file_path, 'r') as f:
-                    file_contents = f.read()
-                
-                filename = os.path.basename(file_path)
-                
-                # Progress bar for queries inside each file
-                for query in tqdm(test_file['queries'], desc=f"{filename} queries", leave=False):
-                    
-                    self.run_morph_test(
-                        model, file_path, filename, 
-                        file_contents, query
+        # Build batches of (model, file) so work can be distributed more evenly
+        batches = []  # List[Tuple[dict(test_file), dict(model)]]
+        for test_file in test_files:
+            for model in models:
+                batches.append((test_file, model))
+
+        max_threads = self.config.get('num_threads', min(32, os.cpu_count() or 8))
+
+        with ThreadPoolExecutor(max_workers=max_threads) as executor:
+            future_to_batch = {
+                executor.submit(self._process_batch, tf, mdl): (tf['path'], mdl['name'])
+                for tf, mdl in batches
+            }
+
+            # Track progress as each batch finishes
+            for idx, future in enumerate(as_completed(future_to_batch), 1):
+                path, model_name = future_to_batch[future]
+                try:
+                    future.result()
+                    print(
+                        f"✓ Completed {path} with model {model_name} ({idx}/{len(future_to_batch)})"
                     )
-                    
-                    self.run_sr_test(
-                        model, file_path, filename,
-                        file_contents, query
-                    )
-        
+                except Exception as e:
+                    print(f"✗ Error processing {path} with model {model_name}: {e}")
+
+        # Aggregate & output results once all threads are done
         csv_file = self.metrics_collector.save_to_csv()
         log_file = self.metrics_collector.save_detailed_logs()
-        
+
         summary = self.metrics_collector.generate_summary()
-        
-                
+
         if summary['comparison']:
             print(f"\n{'='*60}")
             print("COMPARISON (Morph vs Search & Replace)")
             print(f"{'='*60}")
-            
+
             for model, ratios in summary['comparison'].items():
                 print(f"\nModel: {model}")
                 print(f"  Redundant Tokens Ratio: {ratios['redundant_tokens_ratio']:.2f}x")
                 print(f"  Generation Time Ratio: {ratios['time_generate_ratio']:.2f}x")
                 print(f"  Apply Time Ratio: {ratios['time_apply_ratio']:.2f}x")
                 print(f"  Total Tokens Ratio: {ratios['total_tokens_ratio']:.2f}x")
-        
+
         print(f"\n{'='*60}")
         print(f"Results saved to: {csv_file}")
         print(f"Detailed logs saved to: {log_file}")
         print(f"{'='*60}\n")
-        
+
         return csv_file, log_file, summary
+
+    def _process_batch(self, test_file: Dict, model: Dict):
+        """Process a single (file, model) batch across all queries."""
+        file_path = os.path.join(self.corpus_dir, test_file['path'])
+
+        if not os.path.exists(file_path):
+            print(f"Warning: File {file_path} not found, skipping batch...")
+            return
+
+        with open(file_path, 'r') as f:
+            file_contents = f.read()
+
+        filename = os.path.basename(file_path)
+
+        for query in test_file['queries']:
+            self.run_morph_test(model, file_path, filename, file_contents, query)
+            self.run_sr_test(model, file_path, filename, file_contents, query)
     
     def run_morph_test(self, model: Dict, file_path: str, 
                       filename: str, file_contents: str, query: Dict):
@@ -131,6 +143,9 @@ class BenchmarkRunner:
             )
             
             self.metrics_collector.add_result(result)
+            print(
+                f"✓ Morph edit completed: {filename} [{query['id']}] with model {model['name']}"
+            )
             
             
         except Exception as e:
@@ -151,7 +166,7 @@ class BenchmarkRunner:
             apply_timer = Timer()
             apply_timer.start()
             
-            edited_content = apply_sr_edit(edit_response, file_contents)
+            edited_content, success = apply_sr_edit(edit_response, file_contents)
             
             apply_timer.stop()
             apply_time = apply_timer.get_duration_ms()
@@ -160,7 +175,12 @@ class BenchmarkRunner:
                 edit_response, model['name']
             )
             
-            is_correct = verify_update(file_contents, edited_content, query['prompt'])
+            if success:
+                # Only call expensive validation when edits applied cleanly
+                is_correct = verify_update(file_contents, edited_content, query['prompt'])
+            else:
+                # Mark as incorrect without validation
+                is_correct = False
             
             result = BenchmarkResult(
                 benchmark_id="benchmark",
@@ -179,6 +199,10 @@ class BenchmarkRunner:
             )
             
             self.metrics_collector.add_result(result)
+            status_symbol = "✓" if success else "✗"
+            print(
+                f"{status_symbol} S&R edit completed: {filename} [{query['id']}] with model {model['name']} (success={success})"
+            )
             
             
         except Exception as e:

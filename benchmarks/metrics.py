@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any
 from dataclasses import dataclass, asdict
+import threading
 
 @dataclass
 class BenchmarkResult:
@@ -26,11 +27,15 @@ class MetricsCollector:
     def __init__(self, output_dir: str = "results/"):
         self.output_dir = output_dir
         self.results: List[BenchmarkResult] = []
+        # Thread-safe append with a lock ensures consistency when used from multiple threads
+        self._lock = threading.Lock()
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(os.path.join(output_dir, "logs"), exist_ok=True)
     
     def add_result(self, result: BenchmarkResult):
-        self.results.append(result)
+        """Thread-safe addition of a result record."""
+        with self._lock:
+            self.results.append(result)
     
     def save_to_csv(self, filename: str = None):
         if filename is None:

@@ -198,51 +198,54 @@ def apply_morph_edit(edit, initial_code):
 
 
 def apply_sr_edit(edit, initial_code):
-    """
-    Apply string replacement edits to the initial code.
+    """Apply string-replacement edits returned by the search-and-replace LLM.
+
+    The function attempts to apply **all** edits sequentially. It now also returns a
+    *success* flag indicating whether **each** requested replacement was applied
+    exactly once.  This allows the benchmark runner to skip the expensive LLM
+    validation step whenever the edits could not be cleanly applied (e.g. when
+    the *old_string* token is missing or appears more than once).
 
     Args:
-        edit: Dictionary containing 'edits' array with old_string/new_string pairs
-        initial_code: The original code to apply edits to
+        edit: Dict containing an ``edits`` array of objects with *old_string* and
+              *new_string*.
+        initial_code: Original file contents.
 
     Returns:
-        The edited code after applying all successful edits
+        Tuple[str, bool]: (updated_code, success) where *success* is ``True`` iff
+        every edit was applied uniquely.
     """
-    if "edits" not in edit:
-        return initial_code
 
-    edits = edit["edits"]
-    if not isinstance(edits, list):
-        return initial_code
+    if "edits" not in edit or not isinstance(edit["edits"], list):
+        return initial_code, False
 
     current_code = initial_code
-    applied_count = 0
+    success = True
 
-    for i, single_edit in enumerate(edits, 1):
+    for i, single_edit in enumerate(edit["edits"], 1):
         if "old_string" not in single_edit or "new_string" not in single_edit:
             print(
-                f"Edit {i}: Missing required fields. Expected 'old_string' and 'new_string'"
+                f"Edit {i}: Missing required fields 'old_string' or 'new_string'. Marking as failure."
             )
+            success = False
             break
 
         old_str = single_edit["old_string"]
         new_str = single_edit["new_string"]
 
-        count = current_code.count(old_str)
+        occurrences = current_code.count(old_str)
 
-        if count == 0:
-            print(f"Edit {i}: No match found for replacement text")
-            break
-        elif count > 1:
+        if occurrences != 1:
+            # Either zero or multiple occurrences – consider this a failure.
             print(
-                f"Edit {i}: Found {count} matches for replacement text (expected exactly 1)"
+                f"Edit {i}: Expected exactly 1 occurrence of old_string, found {occurrences}. Marking as failure."
             )
+            success = False
             break
 
-        current_code = current_code.replace(old_str, new_str)
-        applied_count += 1
+        current_code = current_code.replace(old_str, new_str, 1)
 
-    return current_code
+    return current_code, success
 
 
 def write_new_file(content, filename, workspace_dir="workspace/"):

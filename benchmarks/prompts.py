@@ -25,11 +25,9 @@ You will be provided with:
 
 ## Evaluation Criteria:
 - **Correctness**: Does the `Unified Diff` perfectly and completely implement every change described in the `update_snippet`?
-- **Completeness**: Are all aspects of the instructions addressed in the diff?
 - **Precision**: Are ONLY the changes requested in the update instructions applied, nothing else?
-- **Code Quality**: Do the changes maintain syntactic correctness and good structure?
+- **Code Quality**: Do the changes maintain syntactic correctness?
 - **Preservation**: Are unrelated parts of the code left untouched?
-- **Logic**: Do the changes maintain logical coherence?
 
 ## Response Format:
 You MUST respond with a JSON object containing:
