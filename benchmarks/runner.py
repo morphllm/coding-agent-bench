@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import get_edit, apply_morph_edit, apply_sr_edit, verify_update
+from utils import get_edit, apply_morph_edit, apply_sr_edit, verify_update, run_multi_turn_edits, get_full_file_generation, calculate_redundant_tokens_full_file
 from benchmarks.metrics import MetricsCollector, BenchmarkResult, Timer
 from benchmarks.token_counter import calculate_redundant_tokens_morph, calculate_redundant_tokens_sr
 from benchmarks.prompts import get_morph_prompt, get_sr_prompt
@@ -28,6 +28,8 @@ class BenchmarkRunner:
         
         self.workspace_dir = "workspace/"
         self.corpus_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.multi_turn = self.config.get('multi_turn', False)
+        self.full_file_generation = self.config.get('full_file_generation', False)
     
     def run_all_benchmarks(self):
         models = self.config.get('models', [])
@@ -64,7 +66,19 @@ class BenchmarkRunner:
 
         summary = self.metrics_collector.generate_summary()
 
-        if summary['comparison']:
+        if self.full_file_generation:
+            # Full file generation mode - show only those results
+            print(f"\n{'='*60}")
+            print("FULL FILE GENERATION RESULTS")
+            print(f"{'='*60}")
+            
+            for model in summary['summary']:
+                if 'full_file_generation' in summary['summary'][model]:
+                    ffg = summary['summary'][model]['full_file_generation']
+                    print(f"\nModel: {model}")
+                    print(f"  Total Tokens: {ffg['avg_total_tokens']:.1f}, Redundant: {ffg['avg_redundant_tokens']:.1f}, Gen Time: {ffg['avg_time_generate_ms']:.1f} ms, Success: {ffg['success_rate']*100:.1f}%")
+                    print(f"  (No apply time - generation outputs the complete file)")
+        elif summary['comparison']:
             print(f"\n{'='*60}")
             print("COMPARISON (Morph vs Search & Replace)")
             print(f"{'='*60}")
@@ -77,8 +91,14 @@ class BenchmarkRunner:
 
                 print(f"\nModel: {model}")
                 print(f"  Using Morph creates {percent:.1f}% the number of redundant tokens as Search & Replace.")
-                print(f"  Morph – Avg Total Tokens: {morph['avg_total_tokens']:.1f}, Redundant Tokens: {morph['avg_redundant_tokens']:.1f}, Generate Time: {morph['avg_time_generate_ms']:.1f} ms, Apply Time: {morph['avg_time_apply_ms']:.1f} ms, Success: {morph['success_rate']*100:.1f}%")
-                print(f"  S&R  – Avg Total Tokens: {sr['avg_total_tokens']:.1f}, Redundant Tokens: {sr['avg_redundant_tokens']:.1f}, Generate Time: {sr['avg_time_generate_ms']:.1f} ms, Apply Time: {sr['avg_time_apply_ms']:.1f} ms, Success: {sr['success_rate']*100:.1f}%")
+                
+                # Include iterations in output if in multi-turn mode
+                if self.multi_turn:
+                    print(f"  Morph – Avg Iterations: {morph.get('avg_iterations', 1):.1f}, Total Tokens: {morph['avg_total_tokens']:.1f}, Redundant: {morph['avg_redundant_tokens']:.1f}, Gen Time: {morph['avg_time_generate_ms']:.1f} ms, Apply Time: {morph['avg_time_apply_ms']:.1f} ms, Success: {morph['success_rate']*100:.1f}%")
+                    print(f"  S&R  – Avg Iterations: {sr.get('avg_iterations', 1):.1f}, Total Tokens: {sr['avg_total_tokens']:.1f}, Redundant: {sr['avg_redundant_tokens']:.1f}, Gen Time: {sr['avg_time_generate_ms']:.1f} ms, Apply Time: {sr['avg_time_apply_ms']:.1f} ms, Success: {sr['success_rate']*100:.1f}%")
+                else:
+                    print(f"  Morph – Avg Total Tokens: {morph['avg_total_tokens']:.1f}, Redundant Tokens: {morph['avg_redundant_tokens']:.1f}, Generate Time: {morph['avg_time_generate_ms']:.1f} ms, Apply Time: {morph['avg_time_apply_ms']:.1f} ms, Success: {morph['success_rate']*100:.1f}%")
+                    print(f"  S&R  – Avg Total Tokens: {sr['avg_total_tokens']:.1f}, Redundant Tokens: {sr['avg_redundant_tokens']:.1f}, Generate Time: {sr['avg_time_generate_ms']:.1f} ms, Apply Time: {sr['avg_time_apply_ms']:.1f} ms, Success: {sr['success_rate']*100:.1f}%")
 
         print(f"\n{'='*60}")
         print(f"Results saved to: {csv_file}")
@@ -101,33 +121,61 @@ class BenchmarkRunner:
         filename = os.path.basename(file_path)
 
         for query in test_file['queries']:
-            self.run_morph_test(model, file_path, filename, file_contents, query)
-            self.run_sr_test(model, file_path, filename, file_contents, query)
+            if self.full_file_generation:
+                # In full file generation mode, run only the full file test
+                self.run_full_file_test(model, file_path, filename, file_contents, query)
+            else:
+                # Normal mode: run both morph and SR tests
+                self.run_morph_test(model, file_path, filename, file_contents, query)
+                self.run_sr_test(model, file_path, filename, file_contents, query)
     
     def run_morph_test(self, model: Dict, file_path: str, 
                       filename: str, file_contents: str, query: Dict):
         
         try:
-            generation_timer = Timer()
-            generation_timer.start()
+            if self.multi_turn:
+                # Multi-turn mode
+                result = run_multi_turn_edits(
+                    file_contents, query['prompt'], "morph", model['model_id']
+                )
+                
+                edited_content = result["edited_code"]
+                generation_time = result["total_generation_time_ms"]
+                apply_time = result["total_apply_time_ms"]
+                iterations = result["iterations"]
+                
+                # Calculate redundant tokens across all responses
+                redundant_tokens = 0
+                total_tokens = result["total_tokens"]
+                for response in result["responses"]:
+                    r_tokens, _ = calculate_redundant_tokens_morph(response, model['name'])
+                    redundant_tokens += r_tokens
+                
+                edit_response = {"multi_turn_responses": result["responses"], "iterations": result["iterations"]}
+            else:
+                # Single-turn mode (existing behavior)
+                generation_timer = Timer()
+                generation_timer.start()
+                
+                edit_response = get_edit(file_contents, query['prompt'], "morph", model['model_id'])
+                
+                generation_timer.stop()
+                generation_time = generation_timer.get_duration_ms()
+                
+                apply_timer = Timer()
+                apply_timer.start()
+                
+                edited_content = apply_morph_edit(edit_response, file_contents)
+                
+                apply_timer.stop()
+                apply_time = apply_timer.get_duration_ms()
+                
+                redundant_tokens, total_tokens = calculate_redundant_tokens_morph(
+                    edit_response, model['name']
+                )
+                iterations = 1  # Single-turn mode has 1 iteration
             
-            edit_response = get_edit(file_contents, query['prompt'], "morph", model['model_id'])
-            
-            generation_timer.stop()
-            generation_time = generation_timer.get_duration_ms()
-            
-            apply_timer = Timer()
-            apply_timer.start()
-            
-            edited_content = apply_morph_edit(edit_response, file_contents)
-            
-            apply_timer.stop()
-            apply_time = apply_timer.get_duration_ms()
-            
-            redundant_tokens, total_tokens = calculate_redundant_tokens_morph(
-                edit_response, model['name']
-            )
-            
+            # Verification only runs once after all edits are complete
             is_correct = verify_update(file_contents, edited_content, query['prompt'])
             
             result = BenchmarkResult(
@@ -143,7 +191,8 @@ class BenchmarkRunner:
                 timestamp=datetime.now().isoformat(),
                 query_prompt=query['prompt'],
                 response_data=json.dumps(edit_response),
-                is_correct=is_correct
+                is_correct=is_correct,
+                iterations=iterations
             )
             
             self.metrics_collector.add_result(result)
@@ -159,28 +208,55 @@ class BenchmarkRunner:
                    filename: str, file_contents: str, query: Dict):
         
         try:
-            generation_timer = Timer()
-            generation_timer.start()
-            
-            edit_response = get_edit(file_contents, query['prompt'], "sr", model['model_id'])
-            
-            generation_timer.stop()
-            generation_time = generation_timer.get_duration_ms()
-            
-            apply_timer = Timer()
-            apply_timer.start()
-            
-            edited_content, success = apply_sr_edit(edit_response, file_contents)
-            
-            apply_timer.stop()
-            apply_time = apply_timer.get_duration_ms()
-            
-            redundant_tokens, total_tokens = calculate_redundant_tokens_sr(
-                edit_response, model['name']
-            )
+            if self.multi_turn:
+                # Multi-turn mode
+                result = run_multi_turn_edits(
+                    file_contents, query['prompt'], "sr", model['model_id']
+                )
+                
+                edited_content = result["edited_code"]
+                generation_time = result["total_generation_time_ms"]
+                apply_time = result["total_apply_time_ms"]
+                iterations = result["iterations"]
+                success = edited_content != file_contents  # Check if any edits were made
+                
+                # Calculate redundant tokens across all responses
+                redundant_tokens = 0
+                total_tokens = result["total_tokens"]
+                
+                # For multi-turn SR, each response is a single edit
+                for response in result["responses"]:
+                    # Wrap single edit in array format for token calculation
+                    wrapped = {"edits": [response]}
+                    r_tokens, _ = calculate_redundant_tokens_sr(wrapped, model['name'])
+                    redundant_tokens += r_tokens
+                
+                edit_response = {"multi_turn_responses": result["responses"], "iterations": result["iterations"]}
+            else:
+                # Single-turn mode (existing behavior)
+                generation_timer = Timer()
+                generation_timer.start()
+                
+                edit_response = get_edit(file_contents, query['prompt'], "sr", model['model_id'])
+                
+                generation_timer.stop()
+                generation_time = generation_timer.get_duration_ms()
+                
+                apply_timer = Timer()
+                apply_timer.start()
+                
+                edited_content, success = apply_sr_edit(edit_response, file_contents)
+                
+                apply_timer.stop()
+                apply_time = apply_timer.get_duration_ms()
+                
+                redundant_tokens, total_tokens = calculate_redundant_tokens_sr(
+                    edit_response, model['name']
+                )
+                iterations = 1  # Single-turn mode has 1 iteration
             
             if success:
-                # Only call expensive validation when edits applied cleanly
+                # Verification only runs once after all edits are complete
                 is_correct = verify_update(file_contents, edited_content, query['prompt'])
             else:
                 # Mark as incorrect without validation
@@ -199,7 +275,8 @@ class BenchmarkRunner:
                 timestamp=datetime.now().isoformat(),
                 query_prompt=query['prompt'],
                 response_data=json.dumps(edit_response),
-                is_correct=is_correct
+                is_correct=is_correct,
+                iterations=iterations
             )
             
             self.metrics_collector.add_result(result)
@@ -212,4 +289,52 @@ class BenchmarkRunner:
         except Exception as e:
             print(f"      ✗ S&R test failed: {str(e)}")
     
+    def run_full_file_test(self, model: Dict, file_path: str,
+                          filename: str, file_contents: str, query: Dict):
+        
+        try:
+            # Get full file generation from model
+            result = get_full_file_generation(
+                file_contents, query['prompt'], model['model_id']
+            )
+            
+            edited_content = result["edited_content"]
+            generation_time = result["generation_time_ms"]
+            total_tokens = result["total_tokens"]
+            
+            # No apply time for full file generation (the generation IS the application)
+            apply_time = 0
+            
+            # Calculate redundant tokens (unchanged portions)
+            redundant_tokens, _ = calculate_redundant_tokens_full_file(
+                result["response_data"], file_contents, model['name']
+            )
+            
+            # Verify the changes are correct
+            is_correct = verify_update(file_contents, edited_content, query['prompt'])
+            
+            result_obj = BenchmarkResult(
+                benchmark_id="benchmark",
+                model=model['name'],
+                file=file_path,
+                query_id=query['id'],
+                method="full_file_generation",
+                redundant_tokens=redundant_tokens,
+                time_generate_ms=generation_time,
+                time_apply_ms=apply_time,
+                total_tokens=total_tokens,
+                timestamp=datetime.now().isoformat(),
+                query_prompt=query['prompt'],
+                response_data=json.dumps(result["response_data"]),
+                is_correct=is_correct,
+                iterations=1  # Full file generation is always single-turn
+            )
+            
+            self.metrics_collector.add_result(result_obj)
+            print(
+                f"✓ Full file generation completed: {filename} [{query['id']}] with model {model['name']}"
+            )
+            
+        except Exception as e:
+            print(f"      ✗ Full file generation test failed: {str(e)}")
 

@@ -11,7 +11,7 @@ import json
 from openai import OpenAI
 import time
 import random
-from benchmarks.prompts import JUDGMENT_PROMPT
+from benchmarks.prompts import JUDGMENT_PROMPT, get_full_file_prompt
 from google import genai
 from google.genai import types
 
@@ -74,6 +74,49 @@ SR_TOOL: ToolParam = {
             }
         },
         "required": ["edits"],
+    },
+}
+
+# Multi-turn tool definitions
+MORPH_TOOL_MULTI: ToolParam = {
+    "name": "edit_file",
+    "description": "Use this tool to make edits to an existing file.\n\nMake all necessary changes in a SINGLE tool call with one complete code_edit.\nOnly make the minimal changes required to satisfy the prompt.\nUse // ... existing code ... to represent unchanged code.\nIf the file already satisfies the requirements, do not call any tool.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "target_file": {
+                "type": "string",
+                "description": "The target file to modify.",
+            },
+            "instructions": {
+                "type": "string",
+                "description": "A single sentence instruction describing what you are going to do for the sketched edit.",
+            },
+            "code_edit": {
+                "type": "string",
+                "description": "Specify ONLY the precise lines of code that you wish to edit. Use // ... existing code ... for unchanged code.",
+            },
+        },
+        "required": ["target_file", "instructions", "code_edit"],
+    },
+}
+
+SR_TOOL_MULTI: ToolParam = {
+    "name": "edit_file",
+    "description": "Edit the file by making exactly one replacement per call. Provide a single old_string and new_string. To make multiple edits, call this tool again.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "old_string": {
+                "type": "string",
+                "description": "The exact string to find and replace. Must be unique and include enough context.",
+            },
+            "new_string": {
+                "type": "string",
+                "description": "The replacement string.",
+            },
+        },
+        "required": ["old_string", "new_string"],
     },
 }
 
@@ -324,7 +367,187 @@ def write_new_file(content, filename, workspace_dir="workspace/"):
     return file_path
 
 
+def apply_sr_edit_multi(edit: dict, initial_code: str):
+    """Apply a single search-replace edit for multi-turn mode."""
+    if not isinstance(edit, dict) or "old_string" not in edit or "new_string" not in edit:
+        return initial_code, False
+    
+    old_str = edit["old_string"]
+    new_str = edit["new_string"]
+    
+    occurrences = initial_code.count(old_str)
+    if occurrences != 1:
+        return initial_code, False
+    
+    return initial_code.replace(old_str, new_str, 1), True
+
+
+def run_multi_turn_edits(original_code: str, request: str, edit_type: str, model_id: str):
+    """Run multi-turn editing process, returning edited code and metrics."""
+    current_code = original_code
+    iteration = 0
+    total_generation_time = 0
+    total_apply_time = 0
+    total_tokens = 0
+    all_responses = []
+    
+    while iteration < 10:  # Max 10 iterations to prevent infinite loops
+        iteration += 1
+        is_first = (iteration == 1)
+        
+        # Get edit from model
+        gen_start = time.time()
+        tool_call, tokens = get_edit_multi_turn(
+            current_code, request, edit_type, model_id, iteration, is_first
+        )
+        gen_time = (time.time() - gen_start) * 1000  # Convert to ms
+        
+        # If no tool call, we're done
+        if tool_call is None:
+            break
+        
+        all_responses.append(tool_call)
+        total_tokens += tokens
+        
+        # Don't count the last confirmation turn
+        if iteration < 10:  # Assuming we won't hit the limit
+            total_generation_time += gen_time
+        
+        # Apply the edit
+        apply_start = time.time()
+        if edit_type == "morph":
+            updated_code = apply_morph_edit(tool_call, current_code)
+            if not updated_code or updated_code == current_code:
+                break
+            current_code = updated_code
+        else:  # sr
+            updated_code, success = apply_sr_edit_multi(tool_call, current_code)
+            if not success:
+                break
+            current_code = updated_code
+        
+        apply_time = (time.time() - apply_start) * 1000
+        total_apply_time += apply_time
+    
+    return {
+        "edited_code": current_code,
+        "total_generation_time_ms": total_generation_time,
+        "total_apply_time_ms": total_apply_time,
+        "total_tokens": total_tokens,
+        "iterations": iteration,
+        "responses": all_responses
+    }
+
+
+def get_full_file_generation(file_contents: str, request: str, model_id: str = "claude-sonnet-4-20250514"):
+    """Get full file generation from model without using any editing tools."""
+    prompt = get_full_file_prompt(file_contents, request)
+    
+    generation_start = time.time()
+    
+    # Handle different model types
+    if model_id.startswith("o") or "gpt" in model_id:
+        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+        # Some models (o3, o4-mini) don't support temperature=0
+        kwargs = {
+            "model": model_id,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        # Only set temperature for models that support it
+        if not (model_id in ["o3", "o4-mini"]):
+            kwargs["temperature"] = 0
+        
+        response = _retry_on_429(
+            openai_client.chat.completions.create,
+            **kwargs
+        )
+        
+        generation_time = (time.time() - generation_start) * 1000  # ms
+        edited_content = response.choices[0].message.content
+        total_tokens = response.usage.total_tokens if hasattr(response, 'usage') else len(edited_content) // 4
+        
+    elif "gemini" in model_id:
+        genai_client = genai.Client()
+        
+        response = _retry_on_429(
+            genai_client.models.generate_content,
+            model=model_id,
+            contents=prompt,
+        )
+        
+        generation_time = (time.time() - generation_start) * 1000  # ms
+        edited_content = response.text if hasattr(response, 'text') else response.candidates[0].content.parts[0].text
+        total_tokens = len(edited_content) // 4  # Rough estimate
+        
+    else:  # Claude - use streaming for full file generation
+        edited_content = ""
+        total_tokens = 0
+        
+        # Use streaming to avoid timeout for long responses
+        stream = _retry_on_429(
+            client.messages.create,
+            model=model_id,
+            max_tokens=10000,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+        )
+        
+        for event in stream:
+            if hasattr(event, 'delta'):
+                delta = event.delta
+                if hasattr(delta, 'text') and delta.text:
+                    edited_content += delta.text
+            # Track usage from final message if available
+            if hasattr(event, 'message'):
+                message = event.message
+                if hasattr(message, 'usage'):
+                    total_tokens = message.usage.input_tokens + message.usage.output_tokens
+        
+        generation_time = (time.time() - generation_start) * 1000  # ms
+        
+        # Fallback token estimate if not provided
+        if total_tokens == 0:
+            total_tokens = len(prompt) // 4 + len(edited_content) // 4
+    
+    return {
+        "edited_content": edited_content,
+        "generation_time_ms": generation_time,
+        "total_tokens": total_tokens,
+        "response_data": {"full_file_output": edited_content[:500] + "..." if len(edited_content) > 500 else edited_content}
+    }
+
+
+def calculate_redundant_tokens_full_file(response: dict, original_content: str, model_name: str):
+    """Calculate redundant tokens for full file generation.
+    Redundant tokens are the unchanged portions of the file."""
+    from benchmarks.token_counter import count_tokens
+    
+    edited_content = response.get("full_file_output", "")
+    
+    # Total tokens is the entire generated file
+    total_tokens = count_tokens(edited_content, model_name)
+    
+    # Calculate redundant tokens by finding common lines
+    original_lines = original_content.splitlines()
+    edited_lines = edited_content.splitlines()
+    
+    redundant_text = ""
+    for orig_line, edit_line in zip(original_lines, edited_lines):
+        if orig_line.strip() == edit_line.strip():
+            redundant_text += orig_line + "\n"
+    
+    redundant_tokens = count_tokens(redundant_text, model_name)
+    
+    return redundant_tokens, total_tokens
+
+
 def verify_update(original_code, edited_code, update_instruction):
+    """Verify if the update was correctly applied.
+    
+    For full file generation, the diff might be very large since the entire file
+    is regenerated. The judge looks at both versions and the user request.
+    """
     diff_lines = list(
         difflib.unified_diff(
             original_code.splitlines(keepends=True),
@@ -335,6 +558,16 @@ def verify_update(original_code, edited_code, update_instruction):
         )
     )
     unified_diff = "".join(diff_lines)
+
+    # For very large diffs (full file generation), truncate to avoid token limits
+    max_diff_lines = 500
+    diff_lines_list = unified_diff.split('\n')
+    if len(diff_lines_list) > max_diff_lines:
+        # Keep first and last parts of diff
+        truncated_diff = '\n'.join(diff_lines_list[:max_diff_lines//2]) + \
+                        '\n\n... [diff truncated - ' + str(len(diff_lines_list) - max_diff_lines) + ' lines omitted] ...\n\n' + \
+                        '\n'.join(diff_lines_list[-max_diff_lines//2:])
+        unified_diff = truncated_diff
 
     prompt = JUDGMENT_PROMPT.format(
         originalCode=original_code,
@@ -380,3 +613,133 @@ def _retry_on_429(callable_fn, *args, **kwargs):
                 time.sleep(delay)
                 continue
             raise
+
+
+def get_edit_multi_turn(file_contents, request, edit_type, model_id="claude-sonnet-4-20250514", iteration=1, is_first=True):
+    """Multi-turn version of get_edit for iterative editing."""
+    if edit_type == "morph":
+        tool = MORPH_TOOL_MULTI
+        if is_first:
+            system_prompt = (
+                "You will produce a comprehensive single edit to satisfy the user's prompt.\n"
+                "Make all necessary changes in a SINGLE edit_file tool call with one complete code_edit.\n"
+                "Only make the minimal changes required. If the minimum requirement is already met by the current file, do not call any tool.\n\n"
+            )
+            prompt = f"User prompt: {request}\n\nFile content:\n{file_contents}"
+        else:
+            system_prompt = (
+                "Verify if the file now satisfies the user's prompt.\n"
+                "If further edits are necessary, make them in a single tool call.\n"
+                "If the minimum requirement is met, do not call any tool.\n\n"
+            )
+            prompt = f"Here is the updated file, please verify.\n\nUser prompt (unchanged): {request}\n\nFile content:\n{file_contents}"
+    elif edit_type == "sr":
+        tool = SR_TOOL_MULTI
+        if is_first:
+            system_prompt = (
+                "Apply the following edit based on the user prompt to the provided file.\n"
+                "Use the edit_file tool to make exactly one replacement per call (one old_string and one new_string).\n"
+                "Plan to satisfy the prompt with the minimum number of calls.\n"
+                "If the minimum requirement is already satisfied by the current file, do not call any tool.\n\n"
+            )
+            prompt = f"User prompt: {request}\n\nFile content:\n{file_contents}"
+        else:
+            system_prompt = (
+                "Continue applying edits if necessary.\n"
+                "Use the edit_file tool to make exactly one replacement per call.\n"
+                "If the minimum requirement is already satisfied, do not call any tool.\n\n"
+            )
+            prompt = f"Here is the updated file, please continue.\n\nUser prompt (unchanged): {request}\n\nFile content:\n{file_contents}"
+    else:
+        raise ValueError(f"Unknown edit_type: {edit_type}")
+
+    # Handle different model types
+    if model_id.startswith("o") or "gpt" in model_id:
+        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        openai_tool = {
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool["description"],
+                "parameters": tool["input_schema"],
+            },
+        }
+        
+        response = _retry_on_429(
+            openai_client.chat.completions.create,
+            model=model_id,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            tools=[openai_tool],
+            tool_choice="auto",
+        )
+        
+        if response.choices[0].message.tool_calls:
+            tool_call = json.loads(
+                response.choices[0].message.tool_calls[0].function.arguments
+            )
+            return tool_call, response.usage.total_tokens if hasattr(response, 'usage') else 0
+        else:
+            return None, response.usage.total_tokens if hasattr(response, 'usage') else 0
+            
+    elif "gemini" in model_id:
+        function_declarations = [_convert_tool_for_gemini(tool)]
+        gemini_tool = types.Tool(function_declarations=function_declarations)
+        config = types.GenerateContentConfig(tools=[gemini_tool])
+        
+        genai_client = genai.Client()
+        full_prompt = system_prompt + "\n\n" + prompt
+        
+        response = _retry_on_429(
+            genai_client.models.generate_content,
+            model=model_id,
+            contents=full_prompt,
+            config=config,
+        )
+        
+        parts = response.candidates[0].content.parts
+        if parts and hasattr(parts[0], "function_call") and parts[0].function_call:
+            fc = parts[0].function_call
+            args = fc.args
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except Exception:
+                    pass
+            # Estimate tokens for Gemini
+            token_count = len(json.dumps(args)) // 4
+            return args, token_count
+        return None, 0
+        
+    else:  # Claude
+        stream = _retry_on_429(
+            client.messages.create,
+            model=model_id,
+            max_tokens=10000,
+            tools=[tool],
+            system=system_prompt,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+        )
+        
+        json_string = ""
+        token_count = 0
+        
+        for event in stream:
+            delta = getattr(event, "delta", None)
+            if delta is None:
+                continue
+            text = getattr(delta, "text", None)
+            if text is not None:
+                continue
+            partial_json = getattr(delta, "partial_json", None)
+            if partial_json is not None:
+                json_string += partial_json
+                token_count += len(partial_json) // 4  # Rough estimate
+                continue
+        
+        if json_string:
+            return json.loads(json_string), token_count
+        return None, token_count

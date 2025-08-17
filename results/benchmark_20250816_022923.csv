@@ -1,5 +1,0 @@
-benchmark_id,model,file,query_id,method,redundant_tokens,time_generate_ms,time_apply_ms,total_tokens,timestamp,is_correct
-benchmark,gemini-flash-2.5,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc,visualizer_background_color,morph,33,1995.7821369171143,2991.895914077759,62,2025-08-16T02:28:58.999273,True
-benchmark,gemini-flash-2.5,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc,visualizer_background_color,search_replace,33,2055.417776107788,0.06103515625,51,2025-08-16T02:29:06.533100,True
-benchmark,gemini-pro-2.5,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc,visualizer_background_color,morph,59,15030.596017837524,2561.859130859375,135,2025-08-16T02:29:11.092476,True
-benchmark,gemini-pro-2.5,/Users/dhruvbhatia/CODE/misc/morph/coding-agent-bench/corpus/visualizer.cc,visualizer_background_color,search_replace,33,6362.161874771118,0.030040740966796875,51,2025-08-16T02:29:23.421787,True

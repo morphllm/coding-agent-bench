@@ -22,6 +22,7 @@ class BenchmarkResult:
     query_prompt: str
     response_data: str
     is_correct: bool = False
+    iterations: int = 1  # Number of turns in multi-turn mode, default 1 for single-turn
 
 class MetricsCollector:
     def __init__(self, output_dir: str = "results/"):
@@ -48,7 +49,7 @@ class MetricsCollector:
             fieldnames = [
                 'benchmark_id', 'model', 'file', 'query_id', 'method',
                 'redundant_tokens', 'time_generate_ms', 'time_apply_ms',
-                'total_tokens', 'timestamp', 'is_correct'
+                'total_tokens', 'timestamp', 'is_correct', 'iterations'
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             
@@ -90,6 +91,7 @@ class MetricsCollector:
                         "avg_time_generate_ms": sum(r.time_generate_ms for r in method_results) / len(method_results),
                         "avg_time_apply_ms": sum(r.time_apply_ms for r in method_results) / len(method_results),
                         "avg_total_tokens": sum(r.total_tokens for r in method_results) / len(method_results),
+                        "avg_iterations": sum(r.iterations for r in method_results) / len(method_results),
                         "success_rate": sum(1 for r in method_results if r.is_correct) / len(method_results),
                         "num_samples": len(method_results)
                     }

@@ -14,6 +14,22 @@ def get_sr_prompt(file_contents: str, query: str) -> str:
         f"file content:\n{file_contents}"
     )
 
+def get_full_file_prompt(file_contents: str, query: str) -> str:
+    return (
+        f"You are given a file and a user request to modify it.\n"
+        f"Your task is to output the COMPLETE file with the requested changes applied.\n\n"
+        f"CRITICAL INSTRUCTIONS:\n"
+        f"1. Output the ENTIRE file - do not skip or abbreviate any sections\n"
+        f"2. Do not use ellipsis (...) or placeholders like 'rest of code unchanged'\n"
+        f"3. Apply ONLY the changes requested by the user\n"
+        f"4. Preserve all functionality that is not related to the user's request\n"
+        f"5. Maintain the exact same formatting, style, and structure except where changes are needed\n"
+        f"6. If a section is unrelated to the user's request, it must remain EXACTLY as it was\n\n"
+        f"User request: {query}\n\n"
+        f"Original file content:\n{file_contents}\n\n"
+        f"Output the complete modified file below:"
+    )
+
 JUDGMENT_PROMPT = """You are an expert code reviewer and judge.
 
 Your task: Decide if a patch (shown as a unified diff) has been applied **correctly** to the original code and produced the updated code.
