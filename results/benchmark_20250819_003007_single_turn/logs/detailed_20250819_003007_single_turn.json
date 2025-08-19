@@ -2861,7 +2861,7 @@
     "timestamp": "2025-08-19T00:54:36.768838",
     "query_prompt": "detect desktop or mobile. if desktop, make the canvas full screen",
     "response_data": "{\"target_file\": \"day.tsx\", \"instructions\": \"I will add device detection logic and modify the styles to make the canvas fullscreen on desktop devices while keeping mobile responsive.\", \"code_edit\": \"    // ----------------------\\n    // Device detection & responsive setup\\n    // ----------------------\\n    function detectDevice() {\\n      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||\\n                       (window.innerWidth <= 768) ||\\n                       ('ontouchstart' in window);\\n      return { isMobile };\\n    }\\n\\n    function setupResponsiveLayout() {\\n      const { isMobile } = detectDevice();\\n      const wrap = document.querySelector('.wrap');\\n      const board = document.querySelector('.board');\\n      \\n      if (!isMobile) {\\n        // Desktop: Make fullscreen\\n        document.body.style.padding = '0';\\n        document.body.style.margin = '0';\\n        wrap.style.width = '100vw';\\n        wrap.style.height = '100vh';\\n        wrap.style.maxWidth = 'none';\\n        wrap.style.gap = '0';\\n        \\n        // Hide header and footer on desktop for fullscreen experience\\n        const header = document.querySelector('header');\\n        const footer = document.querySelector('footer');\\n        header.style.display = 'none';\\n        footer.style.display = 'none';\\n        \\n        // Make board fullscreen\\n        board.style.width = '100vw';\\n        board.style.height = '100vh';\\n        board.style.borderRadius = '0';\\n        \\n        // Adjust canvas size for fullscreen\\n        cvs.width = window.innerWidth;\\n        cvs.height = window.innerHeight;\\n        WORLD.w = window.innerWidth;\\n        WORLD.h = window.innerHeight;\\n      }\\n    }\\n\\n    // ----------------------\\n    // Utility helpers\\n    // ----------------------\"}",
-    "is_correct": false,
+    "is_correct": true,
     "iterations": 1
   },
   {
@@ -2891,7 +2891,7 @@
     "timestamp": "2025-08-19T00:54:47.837331",
     "query_prompt": "Turn the bird into a random emoji every time I go through a set of pipes",
     "response_data": "{\"target_file\": \"day.tsx\", \"instructions\": \"I'm adding a random emoji selection system for the bird that changes every time the player scores (goes through pipes), and modifying the bird rendering to display emojis instead of the drawn bird.\", \"code_edit\": \"    // Bird entity\\n    const bird = {\\n      x: 140,\\n      y: 0,\\n      r: 16,\\n      vy: 0,\\n      rot: 0,\\n      flapAnim: 0,\\n      alive: true,\\n      emoji: '\\ud83d\\udc26', // Add emoji property\\n    };\\n\\n    // Array of possible bird emojis\\n    const birdEmojis = ['\\ud83d\\udc26', '\\ud83e\\udd85', '\\ud83e\\udd86', '\\ud83d\\udc27', '\\ud83e\\udd9c', '\\ud83d\\udd4a\\ufe0f', '\\ud83e\\udda2', '\\ud83d\\udc13', '\\ud83d\\udc14', '\\ud83e\\udd89', '\\ud83e\\udd9a', '\\ud83d\\udc1d', '\\ud83e\\udd8b', '\\ud83d\\udc1b', '\\ud83d\\udc1e', '\\ud83d\\udd77\\ufe0f', '\\ud83e\\udd9f', '\\ud83e\\udeb0', '\\ud83e\\udeb2', '\\ud83d\\udc28', '\\ud83d\\udc3c', '\\ud83d\\udc3b', '\\ud83e\\udd8a', '\\ud83d\\udc31', '\\ud83d\\udc38', '\\ud83d\\udc30', '\\ud83d\\udc2d', '\\ud83d\\udc39', '\\ud83d\\udc33', '\\ud83d\\udc19', '\\ud83e\\udd84', '\\ud83d\\udc0e', '\\ud83e\\udd93', '\\ud83d\\udc04', '\\ud83d\\udc37', '\\ud83d\\udc18', '\\ud83d\\udc35', '\\ud83d\\ude48', '\\ud83d\\ude49', '\\ud83d\\ude4a'];\\n\\n    // Function to get random emoji\\n    function getRandomBirdEmoji() {\\n      return birdEmojis[Math.floor(Math.random() * birdEmojis.length)];\\n    }\"}",
-    "is_correct": false,
+    "is_correct": true,
     "iterations": 1
   },
   {
@@ -2921,7 +2921,7 @@
     "timestamp": "2025-08-19T00:54:55.168814",
     "query_prompt": "Every 10 points, increase gravity by 5%",
     "response_data": "{\"target_file\": \"day.tsx\", \"instructions\": \"I will add a base gravity constant and modify the scoring logic to increase gravity by 5% every 10 points.\", \"code_edit\": \"    const WORLD = {\\n      w: 480,\\n      h: 640,\\n      baseGravity: 1800,  // base px/s^2 (renamed from gravity)\\n      gravity: 1800,      // current gravity (will be modified)\\n      jumpVel: -500,      // px/s (up is negative)\\n      termVel: 900,       // px/s\\n      pipeGap: 150,       // vertical gap\\n      pipeW: 80,\\n      pipeMin: 80,\\n      pipeMax: 400,\\n      pipeEvery: 1550,    // ms between pipes\\n      scrollSpeed: 180,   // px/s\\n      groundH: 96,\\n    };\"}",
-    "is_correct": false,
+    "is_correct": true,
     "iterations": 1
   },
   {
@@ -3581,7 +3581,7 @@
     "timestamp": "2025-08-19T01:04:50.329411",
     "query_prompt": "Add keyboard control so pressing G toggles point color between orange and cyan",
     "response_data": "{\"target_file\": \"day.tsx\", \"instructions\": \"I will add a boolean member variable to track color state and modify the handleKey function to toggle point color between orange and cyan when G is pressed.\", \"code_edit\": \"class Visualizer {\\npublic:\\n    Visualizer(const VisualizerConfig& cfg, UpdateFn update)\\n    : cfg_(cfg), update_(std::move(update)),\\n      window_(sf::VideoMode(cfg.width, cfg.height), cfg.windowTitle, sf::Style::Default)\\n    {\\n        window_.setVerticalSyncEnabled(true);\\n        font_.loadFromFile(getDefaultFont());\\n        text_.setFont(font_);\\n        text_.setCharacterSize(14);\\n        text_.setFillColor(sf::Color(210, 210, 230));\\n        text_.setOutlineColor(sf::Color(0,0,0));\\n        text_.setOutlineThickness(1.f);\\n\\n        // For screenshot naming\\n        clock_.restart();\\n    }\\n\\n// ... existing code ...\\n\\nprivate:\\n    VisualizerConfig cfg_;\\n    UpdateFn update_;\\n    sf::RenderWindow window_;\\n    Camera cam_;\\n    std::vector<Vec3> points_;\\n    bool paused_ = false;\\n    bool dragging_ = false;\\n    sf::Vector2i lastMouse_;\\n    sf::Clock clock_;\\n    sf::Font font_;\\n    sf::Text text_;\\n    bool isOrangeColor_ = false;  // Track current color state for G key toggle\\n\\n// ... existing code ...\"}",
-    "is_correct": false,
+    "is_correct": true,
     "iterations": 1
   },
   {

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cyber Bird – Neural Network</title>
+  <style>
+    /* ------------------------------
+       Cyberpunk-themed styling
+       ------------------------------ */
+    :root {
+      --bg: #0a0a0f;
+      --panel: #1a0d2e;
+      --text: #00ffff;
+      --muted: #8a2be2;
+      --accent: #ff00ff;
+      --accent-2: #00ff41;
+      --danger: #ff073a;
+      --gold: #ffaa00;
+      --pipe: #ff00ff;
+      --neon-cyan: #00ffff;
+      --neon-pink: #ff10f0;
+      --neon-green: #39ff14;
+      --dark-purple: #16003b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(255, 0, 255, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(0, 255, 255, 0.15) 0%, transparent 50%),
+        linear-gradient(135deg, #0a0a0f 0%, #1a0d2e 50%, #0a0a0f 100%);
+      color: var(--text);
+      font: 16px/1.5 'Courier New', monospace;
+      display: grid;
+      place-items: center;
+      text-shadow: 0 0 5px currentColor;
+    }
+
+    .wrap {
+      width: min(92vw, 560px);
+      display: grid;
+      gap: 12px;
+      filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.3));
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, rgba(26, 13, 46, 0.8) 0%, rgba(22, 0, 59, 0.9) 100%);
+      border: 1px solid var(--neon-cyan);
+      border-radius: 14px;
+      padding: 10px 14px;
+      box-shadow: 
+        0 10px 30px rgba(255, 0, 255, 0.4), 
+        inset 0 1px 0 rgba(0, 255, 255, 0.2),
+        0 0 20px rgba(0, 255, 255, 0.3);
+    }
+
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    header .controls {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button, .btn {
+      background: linear-gradient(135deg, rgba(255, 0, 255, 0.2) 0%, rgba(138, 43, 226, 0.3) 100%);
+      color: var(--neon-cyan);
+      border: 1px solid var(--neon-pink);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 
+        0 4px 14px rgba(255, 0, 255, 0.4), 
+        inset 0 1px 0 rgba(0, 255, 255, 0.1),
+        0 0 10px rgba(255, 0, 255, 0.3);
+    }
+
+    button:hover { 
+      filter: brightness(1.3);
+      box-shadow: 
+        0 6px 20px rgba(255, 0, 255, 0.6), 
+        inset 0 1px 0 rgba(0, 255, 255, 0.2),
+        0 0 15px rgba(255, 0, 255, 0.5);
+    }
+    button:active { transform: translateY(1px) scale(0.98); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(22, 0, 59, 0.7);
+      border: 1px solid var(--neon-green);
+      color: var(--neon-green);
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      user-select: none;
+      box-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+    }
+
+    .board {
+      position: relative;
+      background: linear-gradient(180deg, #0a0520 0%, #1a0f3a 30%, #2d1b69 60%, #0f0a2e 100%);
+      border: 2px solid var(--neon-cyan);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 
+        0 12px 30px rgba(0, 255, 255, 0.4),
+        inset 0 0 50px rgba(255, 0, 255, 0.1),
+        0 0 30px rgba(0, 255, 255, 0.3);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(10, 10, 15, 0.85), rgba(26, 13, 46, 0.7));
+      color: var(--neon-cyan);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .card {
+      background: rgba(22, 0, 59, 0.9);
+      border: 2px solid var(--neon-pink);
+      backdrop-filter: blur(15px);
+      padding: 18px 20px;
+      border-radius: 14px;
+      max-width: 92%;
+      box-shadow: 
+        0 0 30px rgba(255, 0, 255, 0.5),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    }
+
+    .title { 
+      font-size: 22px; 
+      margin: 0 0 8px; 
+      color: var(--neon-pink);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-shadow: 0 0 15px var(--neon-pink);
+    }
+    .subtitle { 
+      margin: 0 0 10px; 
+      opacity: 0.9;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px var(--neon-cyan);
+    }
+    .kbd {
+      display: inline-grid;
+      grid-auto-flow: column;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--neon-green);
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      color: var(--neon-green);
+      box-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: -4px;
+      padding: 0 6px 4px 6px;
+    }
+
+    .scorehud {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid var(--neon-cyan);
+      padding: 6px 10px;
+      border-radius: 8px;
+      color: var(--neon-cyan);
+      font-weight: 700;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px var(--neon-cyan);
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      user-select: none;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    }
+
+    .scorehud .dot { 
+      width: 8px; 
+      height: 8px; 
+      border-radius: 999px; 
+      background: var(--neon-pink);
+      box-shadow: 0 0 10px var(--neon-pink);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.2); }
+    }
+
+    .hidden { display: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="Cyber Bird Neural Network Game">
+    <header>
+      <h1>Cyber Bird — Neural Network</h1>
+      <div class="controls">
+        <span class="pill" title="Controls"><strong>Space</strong> / <strong>Click</strong> to hack</span>
+        <button id="btnStart" aria-label="Start or Restart">Initialize</button>
+        <button id="btnPause" aria-label="Pause or Resume">Pause</button>
+      </div>
+    </header>
+
+    <div class="board" id="board">
+      <canvas id="game" width="480" height="640" aria-label="Game canvas"></canvas>
+      <div class="scorehud" id="hud"><span class="dot"></span> <span id="score">0</span></div>
+      <div class="overlay" id="overlay">
+        <div class="card">
+          <h2 class="title">Access Neural Network</h2>
+          <p class="subtitle">Navigate through data streams to collect points. Avoid system firewalls.</p>
+          <div class="kbd">Space • Click • Tap</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>
+        <span>Max Score: <strong id="hiscore">0</strong></span>
+        <span class="sr-only" id="live" aria-live="polite"></span>
+      </div>
+      <div>Neural Matrix • <span title="Device Pixel Ratio">DPR:</span> <span id="dpr">1</span></div>
+    </footer>
+  </div>
+
+  <script>
+    /* ======================================================
+       Cyber Bird (Vanilla JS + Canvas) — Neural Network
+       - Canvas-based renderer with DPR scaling
+       - Keyboard/mouse/touch controls
+       - Pause/Resume, Restart, Scoring & High score (localStorage)
+       - Cyberpunk-themed audio effects
+       - ~500 lines with comments
+       ====================================================== */
+
+    // ----------------------
+    // Utility helpers
+    // ----------------------
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const now = () => performance.now();
+
+    // Easing for small animations
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    // ----------------------
+    // Audio (cyberpunk synth beeps)
+    // ----------------------
+    let audioCtx;
+    function beep(freq = 880, dur = 0.06, type = "sine", vol = 0.2) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.01);
+      } catch (e) {
+        // Audio may be blocked—ignore gracefully
+      }
+    }
+
+    const SFX = {
+      flap: () => beep(660, 0.12, "square", 0.15), // Digital hack sound
+      score: () => beep(1760, 0.15, "sawtooth", 0.2), // Data collection
+      hit: () => beep(220, 0.4, "square", 0.25), // System breach
+    };
+
+    // ----------------------
+    // Game constants & state
+    // ----------------------
+    const cvs = document.getElementById('game');
+    const ctx = cvs.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const board = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const hiEl = document.getElementById('hiscore');
+    const dprEl = document.getElementById('dpr');
+    const btnStart = document.getElementById('btnStart');
+    const btnPause = document.getElementById('btnPause');
+    const live = document.getElementById('live');
+
+    const WORLD = {
+      w: 480,
+      h: 640,
+      gravity: 1800,    // px/s^2
+      jumpVel: -500,    // px/s (up is negative)
+      termVel: 900,     // px/s
+      pipeGap: 150,     // vertical gap
+      pipeW: 80,
+      pipeMin: 80,
+      pipeMax: 400,
+      pipeEvery: 1550,  // ms between pipes
+      scrollSpeed: 180, // px/s
+      groundH: 96,
+    };
+
+    // DPR-aware canvas sizing
+    function fitCanvas() {
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+      dprEl.textContent = dpr.toFixed(2);
+      const { width, height } = cvs.getBoundingClientRect();
+      const w = Math.floor(width * dpr);
+      const h = Math.floor(height * dpr);
+      if (cvs.width !== w || cvs.height !== h) {
+        cvs.width = w; cvs.height = h;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing to CSS pixels
+    }
+
+    // Bird entity (now a cyber drone)
+    const bird = {
+      x: 140,
+      y: 0,
+      r: 16,
+      vy: 0,
+      rot: 0,
+      flapAnim: 0,
+      alive: true,
+    };
+
+    // Pipes: each pipe pair is { x, gapY, passed }
+    const pipes = [];
+
+    // Ground scroll offset
+    let groundX = 0;
+
+    // Game state
+    let started = false;
+    let paused = false;
+    let gameOver = false;
+    let score = 0;
+    let hiscore = +localStorage.getItem('cyber.hiscore') || 0;
+    hiEl.textContent = hiscore;
+
+    let lastT = 0;
+    let spawnT = 0;
+
+    // ----------------------
+    // Setup & reset
+    // ----------------------
+    function resetGame() {
+      started = false;
+      paused = false;
+      gameOver = false;
+      score = 0;
+      scoreEl.textContent = '0';
+      live.textContent = 'Neural network reset. Tap or press Space to initialize.';
+
+      bird.y = WORLD.h * 0.4;
+      bird.vy = 0;
+      bird.rot = 0;
+      bird.alive = true;
+      bird.flapAnim = 0;
+
+      pipes.length = 0;
+      spawnT = 0;
+      groundX = 0;
+
+      overlay.classList.remove('hidden');
+      btnPause.textContent = 'Pause';
+    }
+
+    // Spawn a pipe pair (now firewalls)
+    function spawnPipe() {
+      const gapY = rand(WORLD.pipeMin, WORLD.h - WORLD.pipeMax);
+      pipes.push({ x: WORLD.w + 10, gapY, passed: false });
+    }
+
+    // ----------------------
+    // Controls
+    // ----------------------
+    function doFlap() {
+      if (!started) started = true;
+      if (gameOver) return;
+      if (paused) return;
+      bird.vy = WORLD.jumpVel;
+      bird.flapAnim = 1; // trigger wing animation
+      SFX.flap();
+    }
+
+    function doPauseToggle() {
+      if (!started || gameOver) return;
+      paused = !paused;
+      btnPause.textContent = paused ? 'Resume' : 'Pause';
+      live.textContent = paused ? 'System paused.' : 'System resumed.';
+    }
+
+    function onKey(e) {
+      if (e.repeat) return;
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (gameOver) { resetGame(); return; }
+        overlay.classList.add('hidden');
+        doFlap();
+      } else if (e.code === 'KeyP') {
+        doPauseToggle();
+      } else if (e.code === 'Enter') {
+        if (gameOver) resetGame();
+      }
+    }
+
+    // Pointer controls
+    function onPointerDown() {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      doFlap();
+    }
+
+    btnStart.addEventListener('click', () => {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      started = true;
+      doFlap();
+    });
+    btnPause.addEventListener('click', doPauseToggle);
+
+    window.addEventListener('keydown', onKey);
+    board.addEventListener('pointerdown', onPointerDown);
+
+    // Resize handling
+    const ro = new ResizeObserver(fitCanvas);
+    ro.observe(cvs);
+    window.addEventListener('orientationchange', fitCanvas);
+
+    // ----------------------
+    // Physics & collision
+    // ----------------------
+    function step(dt) {
+      // dt in seconds
+      if (!started || paused || gameOver) return;
+
+      // Bird physics
+      bird.vy += WORLD.gravity * dt;
+      bird.vy = clamp(bird.vy, -WORLD.termVel, WORLD.termVel);
+      bird.y += bird.vy * dt;
+
+      // Tilt based on velocity
+      bird.rot = clamp(bird.vy / WORLD.termVel, -1, 1) * 1.2;
+
+      // Wing anim decay
+      bird.flapAnim = Math.max(0, bird.flapAnim - dt * 3.2);
+
+      // Spawn pipes
+      spawnT += dt * 1000;
+      if (spawnT > WORLD.pipeEvery) {
+        spawnT = 0;
+        spawnPipe();
+      }
+
+      // Move pipes & scoring
+      for (let i = pipes.length - 1; i >= 0; i--) {
+        const p = pipes[i];
+        p.x -= WORLD.scrollSpeed * dt;
+        // Offscreen cleanup
+        if (p.x + WORLD.pipeW < -10) {
+          pipes.splice(i, 1);
+          continue;
+        }
+        // Scoring when bird passes center of pair
+        if (!p.passed && p.x + WORLD.pipeW < bird.x) {
+          p.passed = true;
+          score++;
+          scoreEl.textContent = String(score);
+          live.textContent = `Data packets collected: ${score}`;
+          SFX.score();
+        }
+      }
+
+      // Ground scroll
+      groundX = (groundX - WORLD.scrollSpeed * dt) % WORLD.w;
+
+      // Collisions with world bounds
+      const topBound = 0 + 2;
+      const bottomBound = WORLD.h - WORLD.groundH - 2;
+      if (bird.y - bird.r < topBound) {
+        bird.y = topBound + bird.r;
+        bird.vy = 0;
+      }
+      if (bird.y + bird.r > bottomBound) {
+        bird.y = bottomBound - bird.r;
+        endGame();
+        return;
+      }
+
+      // Collisions with pipes
+      // Bird approximated as circle, pipes as rects
+      for (const p of pipes) {
+        const bx = bird.x, by = bird.y, br = bird.r;
+        const Rx = p.x, Ry1 = 0, Rw = WORLD.pipeW;
+        const Rh1 = p.gapY - WORLD.pipeGap / 2;          // top pipe height
+        const Ry2 = p.gapY + WORLD.pipeGap / 2;          // bottom pipe y
+        const Rh2 = WORLD.h - WORLD.groundH - Ry2;       // bottom pipe height
+
+        if (circleRectCollide(bx, by, br, Rx, Ry1, Rw, Rh1) ||
+            circleRectCollide(bx, by, br, Rx, Ry2, Rw, Rh2)) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    function circleRectCollide(cx, cy, cr, rx, ry, rw, rh) {
+      const testX = clamp(cx, rx, rx + rw);
+      const testY = clamp(cy, ry, ry + rh);
+      const dx = cx - testX;
+      const dy = cy - testY;
+      return (dx * dx + dy * dy) <= cr * cr;
+    }
+
+    function endGame() {
+      if (gameOver) return;
+      gameOver = true;
+      started = false;
+      paused = false;
+      SFX.hit();
+      live.textContent = `System breach detected! Final data packets: ${score}.`;
+      if (score > hiscore) {
+        hiscore = score;
+        localStorage.setItem('cyber.hiscore', String(hiscore));
+        hiEl.textContent = hiscore;
+      }
+      showGameOverOverlay();
+    }
+
+    function showGameOverOverlay() {
+      // Fade-in overlay with final score
+      overlay.innerHTML = `
+        <div class="card">
+          <h2 class="title">System Breach</h2>
+          <p class="subtitle">Data Collected: <strong>${score}</strong> • Record: <strong>${hiscore}</strong></p>
+          <div class="kbd">Press <strong>Enter</strong> or click <strong>Initialize</strong> to restart</div>
+        </div>`;
+      overlay.classList.remove('hidden');
+    }
+
+    // ----------------------
+    // Cyberpunk Rendering
+    // ----------------------
+    function draw() {
+      // Clear canvas
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+      // Cyberpunk sky
+      drawCyberSky();
+
+      // Digital rain/matrix effect
+      drawDigitalRain();
+
+      // Firewalls (pipes)
+      for (const p of pipes) drawFirewall(p);
+
+      // Cyber ground
+      drawCyberGround();
+
+      // Cyber drone (bird)
+      drawCyberDrone();
+    }
+
+    function drawCyberSky() {
+      // Dark cyberpunk gradient
+      const g = ctx.createLinearGradient(0, 0, 0, WORLD.h);
+      g.addColorStop(0, '#0a0520');
+      g.addColorStop(0.3, '#1a0f3a');
+      g.addColorStop(0.6, '#2d1b69');
+      g.addColorStop(1, '#0f0a2e');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+      // Add grid overlay effect
+      ctx.save();
+      ctx.globalAlpha = 0.1;
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 1;
+      // Vertical grid lines
+      for (let x = 0; x < WORLD.w; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, WORLD.h);
+        ctx.stroke();
+      }
+      // Horizontal grid lines
+      for (let y = 0; y < WORLD.h; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(WORLD.w, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawDigitalRain() {
+      const t = (performance.now() * 0.01) % (WORLD.w * 10);
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#00ff41';
+      ctx.font = '12px Courier New';
+
+      // Digital rain effect
+      for (let i = 0; i < 15; i++) {
+        const x = (i * 35 + t * 0.5) % (WORLD.w + 40) - 20;
+        const chars = '01011010110101001110';
+        for (let j = 0; j < 8; j++) {
+          const y = (j * 25 + (t * 2) % 200);
+          if (y < WORLD.h) {
+            ctx.fillText(chars[j % chars.length], x, y);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawFirewall(p) {
+      const x = Math.round(p.x) + 0.5;
+      const w = WORLD.pipeW;
+      const gapY = p.gapY;
+      const gap = WORLD.pipeGap;
+      const topH = gapY - gap / 2;
+      const botY = gapY + gap / 2;
+      const botH = (WORLD.h - WORLD.groundH) - botY;
+
+      const drawFirewallSegment = (rx, ry, rw, rh) => {
+        // Main firewall body - dark with neon edges
+        ctx.fillStyle = '#1a0d2e';
+        ctx.fillRect(rx, ry, rw, rh);
+        
+        // Neon pink edges
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rx, ry, rw, rh);
+        
+        // Inner glow
+        ctx.fillStyle = '#ff00ff';
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(rx + 2, ry + 2, rw - 4, rh - 4);
+        ctx.globalAlpha = 1;
+        
+        // Digital pattern
+        ctx.fillStyle = '#ff10f0';
+        for (let i = 10; i < rh - 10; i += 15) {
+          for (let j = 5; j < rw - 5; j += 12) {
+            if (Math.random() > 0.7) {
+              ctx.fillRect(rx + j, ry + i, 3, 3);
+            }
+          }
+        }
+        
+        // Warning stripes
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillRect(rx - 4, ry + rh - 8, rw + 8, 4);
+        ctx.fillRect(rx - 4, ry + rh - 16, rw + 8, 4);
+      };
+
+      // Top firewall segment
+      drawFirewallSegment(x, 0, w, topH);
+      // Bottom firewall segment  
+      drawFirewallSegment(x, botY, w, botH);
+    }
+
+    function drawCyberGround() {
+      const y = WORLD.h - WORLD.groundH;
+      
+      // Dark base
+      ctx.fillStyle = '#0f0a2e';
+      ctx.fillRect(0, y, WORLD.w, WORLD.groundH);
+      
+      // Circuit board pattern
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.6;
+      
+      // Horizontal circuit lines
+      for (let i = 0; i < WORLD.w; i += 60) {
+        const xPos = (i + Math.floor(groundX) % 60);
+        ctx.beginPath();
+        ctx.moveTo(xPos, y + 20);
+        ctx.lineTo(xPos + 40, y + 20);
+        ctx.lineTo(xPos + 45, y + 25);
+        ctx.lineTo(xPos + 55, y + 25);
+        ctx.stroke();
+      }
+      
+      // Circuit nodes
+      ctx.fillStyle = '#ff00ff';
+      for (let i = 0; i < WORLD.w; i += 80) {
+        const xPos = (i + Math.floor(groundX) % 80);
+        ctx.beginPath();
+        ctx.arc(xPos + 20, y + 40, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      ctx.globalAlpha = 1;
+    }
+
+    function drawCyberDrone() {
+      const x = Math.round(bird.x) + 0.5;
+      const y = Math.round(bird.y) + 0.5;
+      const r = bird.r;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(bird.rot);
+
+      // Drone body - metallic with neon accents
+      const bodyR = r;
+      
+      // Main body
+      ctx.fillStyle = '#2a2a2a';
+      ctx.beginPath();
+      ctx.arc(0, 0, bodyR, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Neon cyan outline
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Inner core
+      ctx.fillStyle = '#ff00ff';
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.arc(0, 0, bodyR * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Propeller/thruster effect
+      const flap = easeOut(bird.flapAnim);
+      ctx.save();
+      ctx.globalAlpha = 0.7 + flap * 0.3;
+      
+      // Thruster glow
+      ctx.fillStyle = '#00ff41';
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.8, 0, r * 0.4 + flap * 5, r * 0.8 + flap * 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+
+      // Digital eye/sensor
+      ctx.fillStyle = '#00ffff';
+      ctx.beginPath();
+      ctx.arc(r * 0.3, -r * 0.2, r * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eye center
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(r * 0.35, -r * 0.25, r * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Antenna/sensors
+      ctx.strokeStyle = '#ff00ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.8, -r * 0.4);
+      ctx.lineTo(-r * 1.2, -r * 0.6);
+      ctx.moveTo(-r * 0.8, r * 0.4);
+      ctx.lineTo(-r * 1.2, r * 0.6);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // ----------------------
+    // Main loop
+    // ----------------------
+    function loop(t) {
+      if (!lastT) lastT = t;
+      const dt = clamp((t - lastT) / 1000, 0, 1/20); // cap dt for stability
+      lastT = t;
+
+      step(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ----------------------
+    // Boot
+    // ----------------------
+    function boot() {
+      fitCanvas();
+      resetGame();
+      requestAnimationFrame(loop);
+    }
+
+    // Initial overlay content (resetGame will set it at start too)
+    overlay.classList.remove('hidden');
+
+    // Kick things off when ready
+    window.addEventListener('load', boot, { once: true });
+  </script>
+</body>
+</html>

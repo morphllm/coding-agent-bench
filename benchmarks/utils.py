@@ -63,30 +63,6 @@ MORPH_TOOL: ToolParam = {
 }
 
 
-# Multi-turn tool definitions
-MORPH_TOOL_MULTI: ToolParam = {
-    "name": "edit_file",
-    "description": "Use this tool to make an edit to an existing file.\n\nThis will be read by a less intelligent model, which will quickly apply the edit. You should make it clear what the edit is, while also minimizing the unchanged code you write.\nWhen writing the edit, you should specify each edit in sequence, with the special comment // ... existing code ... to represent unchanged code in between edited lines.\n\nFor example:\n\n// ... existing code ...\nFIRST_EDIT\n// ... existing code ...\nSECOND_EDIT\n// ... existing code ...\nTHIRD_EDIT\n// ... existing code ...\n\nYou must output as few unchanged lines as possible.\nBut, each edit should contain minimally sufficient context of unchanged lines around the code you're editing to resolve ambiguity.\nDO NOT omit spans of pre-existing code (or comments) without using the // ... existing code ... comment to indicate its absence. If you omit the existing code comment, the model may inadvertently delete these lines, so make sure you use the // ... existing code ...\nIf you plan on deleting a section, you must provide context before and after to delete it. If the initial code is ```code \\n Block 1 \\n Block 2 \\n Block 3 \\n code```, and you want to remove Block 2, you would output ```// ... existing code ... \\n Block 1 \\n  Block 3 \\n // ... existing code ...```.\n Be very lazy with the code you write, the more you write the longer the user has to wait. Make the location of the edits clear with some surrounding lines but be as lazy as possible, writing minimal code.\nMake edits to a file in a single edit_file call instead of multiple edit_file calls to the same file. The apply model can handle many distinct edits at once.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "target_file": {
-                "type": "string",
-                "description": "The target file to modify.",
-            },
-            "instructions": {
-                "type": "string",
-                "description": "A single sentence instruction describing what you are going to do for the sketched edit.",
-            },
-            "code_edit": {
-                "type": "string",
-                "description": "Specify ONLY the precise lines of code that you wish to edit. Use // ... existing code ... for unchanged code.",
-            },
-        },
-        "required": ["target_file", "instructions", "code_edit"],
-    },
-}
-
 SR_TOOL_MULTI: ToolParam = {
     "name": "edit_file",
     "description": "Edit the file by making exactly one replacement per call. Provide a single old_string and new_string. To make multiple edits, call this tool again.",

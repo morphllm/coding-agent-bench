@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cyber Drone – Single File</title>
+  <style>
+    /* ------------------------------
+       Cyberpunk-themed styling
+       ------------------------------ */
+    :root {
+      --bg: #0a0014;
+      --panel: #1a0829;
+      --text: #f0e6ff;
+      --muted: #b19cd9;
+      --accent: #ff00ff;
+      --accent-2: #00ffff;
+      --danger: #ff0066;
+      --gold: #ffff00;
+      --pipe: #ff00ff;
+      --neon-blue: #00ffff;
+      --neon-pink: #ff00ff;
+      --neon-purple: #9d00ff;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at 70% 20%, #1a0033, var(--bg));
+      color: var(--text);
+      font: 16px/1.5 'Courier New', monospace;
+      display: grid;
+      place-items: center;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 0, 255, 0.03) 2px,
+        rgba(255, 0, 255, 0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .wrap {
+      width: min(92vw, 560px);
+      display: grid;
+      gap: 12px;
+      position: relative;
+      z-index: 2;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.1));
+      border: 1px solid var(--neon-pink);
+      border-radius: 0;
+      padding: 10px 14px;
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.5), inset 0 0 20px rgba(255, 0, 255, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+      animation: scan 3s linear infinite;
+    }
+
+    @keyframes scan {
+      to { left: 100%; }
+    }
+
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px var(--neon-pink);
+    }
+
+    header .controls {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button, .btn {
+      background: linear-gradient(180deg, rgba(255, 0, 255, 0.2), rgba(157, 0, 255, 0.2));
+      color: var(--text);
+      border: 1px solid var(--neon-blue);
+      border-radius: 0;
+      padding: 8px 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.1);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: 'Courier New', monospace;
+    }
+
+    button:hover { 
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.8), inset 0 0 20px rgba(0, 255, 255, 0.2);
+      border-color: var(--neon-pink);
+      text-shadow: 0 0 5px var(--neon-blue);
+    }
+    button:active { transform: translateY(1px) scale(0.98); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 0;
+      background: rgba(157, 0, 255, 0.2);
+      border: 1px solid var(--neon-purple);
+      color: var(--text);
+      font-size: 12px;
+      user-select: none;
+      text-shadow: 0 0 5px var(--neon-purple);
+      box-shadow: 0 0 10px rgba(157, 0, 255, 0.5);
+    }
+
+    .board {
+      position: relative;
+      background: linear-gradient(180deg, #000033, #1a0033 30%, #330066 70%, #660099 100%);
+      border: 1px solid var(--neon-pink);
+      border-radius: 0;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(255, 0, 255, 0.6), inset 0 0 30px rgba(255, 0, 255, 0.1);
+    }
+
+    .board::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 40px,
+          rgba(0, 255, 255, 0.03) 40px,
+          rgba(0, 255, 255, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 40px,
+          rgba(255, 0, 255, 0.03) 40px,
+          rgba(255, 0, 255, 0.03) 41px
+        );
+      pointer-events: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(157, 0, 255, 0.2));
+      color: white;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .card {
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--neon-blue);
+      backdrop-filter: blur(8px);
+      padding: 18px 20px;
+      border-radius: 0;
+      max-width: 92%;
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.6), inset 0 0 20px rgba(0, 255, 255, 0.1);
+    }
+
+    .title { 
+      font-size: 22px; 
+      margin: 0 0 8px; 
+      text-transform: uppercase;
+      text-shadow: 0 0 15px var(--neon-pink);
+      letter-spacing: 2px;
+    }
+    .subtitle { 
+      margin: 0 0 10px; 
+      opacity: 0.85; 
+      text-shadow: 0 0 10px var(--neon-blue);
+    }
+    .kbd {
+      display: inline-grid;
+      grid-auto-flow: column;
+      gap: 4px;
+      background: rgba(157, 0, 255, 0.3);
+      border: 1px solid var(--neon-purple);
+      padding: 3px 8px;
+      border-radius: 0;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      box-shadow: 0 0 10px rgba(157, 0, 255, 0.5);
+      text-transform: uppercase;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: -4px;
+      padding: 0 6px 4px 6px;
+      text-shadow: 0 0 5px var(--neon-purple);
+    }
+
+    .scorehud {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid var(--gold);
+      padding: 6px 10px;
+      border-radius: 0;
+      color: var(--gold);
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-shadow: 0 0 10px var(--gold);
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      user-select: none;
+      font-family: 'Courier New', monospace;
+      box-shadow: 0 0 15px rgba(255, 255, 0, 0.6);
+    }
+
+    .scorehud .dot { 
+      width: 6px; 
+      height: 6px; 
+      border-radius: 0; 
+      background: var(--gold); 
+      box-shadow: 0 0 10px var(--gold);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .hidden { display: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="Cyber Drone Game">
+    <header>
+      <h1>Cyber Drone — Neon City</h1>
+      <div class="controls">
+        <span class="pill" title="Controls"><strong>Space</strong> / <strong>Click</strong> to boost</span>
+        <button id="btnStart" aria-label="Start or Restart">Start</button>
+        <button id="btnPause" aria-label="Pause or Resume">Pause</button>
+      </div>
+    </header>
+
+    <div class="board" id="board">
+      <canvas id="game" width="480" height="640" aria-label="Game canvas"></canvas>
+      <div class="scorehud" id="hud"><span class="dot"></span> <span id="score">0</span></div>
+      <div class="overlay" id="overlay">
+        <div class="card">
+          <h2 class="title">Navigate the Grid</h2>
+          <p class="subtitle">Dodge laser barriers in the neon city. Don't crash.</p>
+          <div class="kbd">Space • Click • Tap</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>
+        <span>High score: <strong id="hiscore">0</strong></span>
+        <span class="sr-only" id="live" aria-live="polite"></span>
+      </div>
+      <div>Cyberpunk Edition • <span title="Device Pixel Ratio">DPR:</span> <span id="dpr">1</span></div>
+    </footer>
+  </div>
+
+  <script>
+    /* ======================================================
+       Cyber Drone (Cyberpunk Theme) — Single File
+       - Canvas-based renderer with DPR scaling
+       - Keyboard/mouse/touch controls
+       - Pause/Resume, Restart, Scoring & High score (localStorage)
+       - Simple WebAudio beeps (no external assets)
+       - ~500 lines with comments
+       ====================================================== */
+
+    // ----------------------
+    // Utility helpers
+    // ----------------------
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const now = () => performance.now();
+
+    // Easing for small animations
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    // ----------------------
+    // Audio (cyberpunk synth beeps)
+    // ----------------------
+    let audioCtx;
+    function beep(freq = 880, dur = 0.06, type = "sawtooth", vol = 0.2) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.5, t0 + dur);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.01);
+      } catch (e) {
+        // Audio may be blocked—ignore gracefully
+      }
+    }
+
+    const SFX = {
+      flap: () => beep(440, 0.08, "sawtooth", 0.15),
+      score: () => beep(1600, 0.1, "square", 0.2),
+      hit: () => beep(80, 0.3, "triangle", 0.35),
+    };
+
+    // ----------------------
+    // Game constants & state
+    // ----------------------
+    const cvs = document.getElementById('game');
+    const ctx = cvs.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const board = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const hiEl = document.getElementById('hiscore');
+    const dprEl = document.getElementById('dpr');
+    const btnStart = document.getElementById('btnStart');
+    const btnPause = document.getElementById('btnPause');
+    const live = document.getElementById('live');
+
+    const WORLD = {
+      w: 480,
+      h: 640,
+      gravity: 1800,    // px/s^2
+      jumpVel: -500,    // px/s (up is negative)
+      termVel: 900,     // px/s
+      pipeGap: 150,     // vertical gap
+      pipeW: 80,
+      pipeMin: 80,
+      pipeMax: 400,
+      pipeEvery: 1550,  // ms between pipes
+      scrollSpeed: 180, // px/s
+      groundH: 96,
+    };
+
+    // DPR-aware canvas sizing
+    function fitCanvas() {
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+      dprEl.textContent = dpr.toFixed(2);
+      const { width, height } = cvs.getBoundingClientRect();
+      const w = Math.floor(width * dpr);
+      const h = Math.floor(height * dpr);
+      if (cvs.width !== w || cvs.height !== h) {
+        cvs.width = w; cvs.height = h;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing to CSS pixels
+    }
+
+    // Bird entity (now a drone)
+    const bird = {
+      x: 140,
+      y: 0,
+      r: 18,
+      vy: 0,
+      rot: 0,
+      flapAnim: 0,
+      alive: true,
+      trail: []
+    };
+
+    // Pipes: each pipe pair is { x, gapY, passed }
+    const pipes = [];
+
+    // Ground scroll offset
+    let groundX = 0;
+
+    // Game state
+    let started = false;
+    let paused = false;
+    let gameOver = false;
+    let score = 0;
+    let hiscore = +localStorage.getItem('flap.hiscore') || 0;
+    hiEl.textContent = hiscore;
+
+    let lastT = 0;
+    let spawnT = 0;
+
+    // ----------------------
+    // Setup & reset
+    // ----------------------
+    function resetGame() {
+      started = false;
+      paused = false;
+      gameOver = false;
+      score = 0;
+      scoreEl.textContent = '0';
+      live.textContent = 'System ready. Press Space to initiate.';
+
+      bird.y = WORLD.h * 0.4;
+      bird.vy = 0;
+      bird.rot = 0;
+      bird.alive = true;
+      bird.flapAnim = 0;
+      bird.trail = [];
+
+      pipes.length = 0;
+      spawnT = 0;
+      groundX = 0;
+
+      overlay.classList.remove('hidden');
+      btnPause.textContent = 'Pause';
+    }
+
+    // Spawn a pipe pair
+    function spawnPipe() {
+      const gapY = rand(WORLD.pipeMin, WORLD.h - WORLD.pipeMax);
+      pipes.push({ x: WORLD.w + 10, gapY, passed: false });
+    }
+
+    // ----------------------
+    // Controls
+    // ----------------------
+    function doFlap() {
+      if (!started) started = true;
+      if (gameOver) return;
+      if (paused) return;
+      bird.vy = WORLD.jumpVel;
+      bird.flapAnim = 1; // trigger boost animation
+      SFX.flap();
+    }
+
+    function doPauseToggle() {
+      if (!started || gameOver) return;
+      paused = !paused;
+      btnPause.textContent = paused ? 'Resume' : 'Pause';
+      live.textContent = paused ? 'System paused.' : 'System resumed.';
+    }
+
+    function onKey(e) {
+      if (e.repeat) return;
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (gameOver) { resetGame(); return; }
+        overlay.classList.add('hidden');
+        doFlap();
+      } else if (e.code === 'KeyP') {
+        doPauseToggle();
+      } else if (e.code === 'Enter') {
+        if (gameOver) resetGame();
+      }
+    }
+
+    // Pointer controls
+    function onPointerDown() {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      doFlap();
+    }
+
+    btnStart.addEventListener('click', () => {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      started = true;
+      doFlap();
+    });
+    btnPause.addEventListener('click', doPauseToggle);
+
+    window.addEventListener('keydown', onKey);
+    board.addEventListener('pointerdown', onPointerDown);
+
+    // Resize handling
+    const ro = new ResizeObserver(fitCanvas);
+    ro.observe(cvs);
+    window.addEventListener('orientationchange', fitCanvas);
+
+    // ----------------------
+    // Physics & collision
+    // ----------------------
+    function step(dt) {
+      // dt in seconds
+      if (!started || paused || gameOver) return;
+
+      // Update trail
+      bird.trail.push({ x: bird.x, y: bird.y, alpha: 1 });
+      if (bird.trail.length > 15) bird.trail.shift();
+      bird.trail.forEach(t => t.alpha *= 0.9);
+
+      // Bird physics
+      bird.vy += WORLD.gravity * dt;
+      bird.vy = clamp(bird.vy, -WORLD.termVel, WORLD.termVel);
+      bird.y += bird.vy * dt;
+
+      // Tilt based on velocity
+      bird.rot = clamp(bird.vy / WORLD.termVel, -1, 1) * 1.2;
+
+      // Wing anim decay
+      bird.flapAnim = Math.max(0, bird.flapAnim - dt * 3.2);
+
+      // Spawn pipes
+      spawnT += dt * 1000;
+      if (spawnT > WORLD.pipeEvery) {
+        spawnT = 0;
+        spawnPipe();
+      }
+
+      // Move pipes & scoring
+      for (let i = pipes.length - 1; i >= 0; i--) {
+        const p = pipes[i];
+        p.x -= WORLD.scrollSpeed * dt;
+        // Offscreen cleanup
+        if (p.x + WORLD.pipeW < -10) {
+          pipes.splice(i, 1);
+          continue;
+        }
+        // Scoring when bird passes center of pair
+        if (!p.passed && p.x + WORLD.pipeW < bird.x) {
+          p.passed = true;
+          score++;
+          scoreEl.textContent = String(score);
+          live.textContent = `Score: ${score}`;
+          SFX.score();
+        }
+      }
+
+      // Ground scroll
+      groundX = (groundX - WORLD.scrollSpeed * dt) % WORLD.w;
+
+      // Collisions with world bounds
+      const topBound = 0 + 2;
+      const bottomBound = WORLD.h - WORLD.groundH - 2;
+      if (bird.y - bird.r < topBound) {
+        bird.y = topBound + bird.r;
+        bird.vy = 0;
+      }
+      if (bird.y + bird.r > bottomBound) {
+        bird.y = bottomBound - bird.r;
+        endGame();
+        return;
+      }
+
+      // Collisions with pipes
+      // Bird approximated as circle, pipes as rects
+      for (const p of pipes) {
+        const bx = bird.x, by = bird.y, br = bird.r;
+        const Rx = p.x, Ry1 = 0, Rw = WORLD.pipeW;
+        const Rh1 = p.gapY - WORLD.pipeGap / 2;          // top pipe height
+        const Ry2 = p.gapY + WORLD.pipeGap / 2;          // bottom pipe y
+        const Rh2 = WORLD.h - WORLD.groundH - Ry2;       // bottom pipe height
+
+        if (circleRectCollide(bx, by, br, Rx, Ry1, Rw, Rh1) ||
+            circleRectCollide(bx, by, br, Rx, Ry2, Rw, Rh2)) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    function circleRectCollide(cx, cy, cr, rx, ry, rw, rh) {
+      const testX = clamp(cx, rx, rx + rw);
+      const testY = clamp(cy, ry, ry + rh);
+      const dx = cx - testX;
+      const dy = cy - testY;
+      return (dx * dx + dy * dy) <= cr * cr;
+    }
+
+    function endGame() {
+      if (gameOver) return;
+      gameOver = true;
+      started = false;
+      paused = false;
+      SFX.hit();
+      live.textContent = `System crash! Final score ${score}.`;
+      if (score > hiscore) {
+        hiscore = score;
+        localStorage.setItem('flap.hiscore', String(hiscore));
+        hiEl.textContent = hiscore;
+      }
+      showGameOverOverlay();
+    }
+
+    function showGameOverOverlay() {
+      // Fade-in overlay with final score
+      overlay.innerHTML = `
+        <div class="card">
+          <h2 class="title">System Crash</h2>
+          <p class="subtitle">Score: <strong>${score}</strong> · Best: <strong>${hiscore}</strong></p>
+          <div class="kbd">Press <strong>Enter</strong> or click <strong>Start</strong> to reboot</div>
+        </div>`;
+      overlay.classList.remove('hidden');
+    }
+
+    // ----------------------
+    // Rendering
+    // ----------------------
+    function draw() {
+      // Clear (sky already drawn via CSS background; fill fallback)
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+      // Sky gradient fallback (in case CSS not visible)
+      drawSky();
+
+      // Parallax clouds
+      drawClouds();
+
+      // Pipes
+      for (const p of pipes) drawPipe(p);
+
+      // Ground
+      drawGround();
+
+      // Bird
+      drawBird();
+
+      // Optional: debug hit areas (toggle if needed)
+      // debugHit();
+    }
+
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, WORLD.h);
+      g.addColorStop(0, '#000033');
+      g.addColorStop(0.3, '#1a0033');
+      g.addColorStop(0.7, '#330066');
+      g.addColorStop(1, '#660099');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+      // Add stars/particles
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      const t = performance.now() * 0.0001;
+      for (let i = 0; i < 30; i++) {
+        const x = (i * 73 + t * i * 10) % WORLD.w;
+        const y = (i * 37) % (WORLD.h - WORLD.groundH);
+        const size = 0.5 + (i % 3) * 0.5;
+        ctx.fillRect(x, y, size, size);
+      }
+      ctx.restore();
+    }
+
+    function drawClouds() {
+      // Draw cyberpunk fog/smog
+      const t = (performance.now() * 0.02) % (WORLD.w * 20);
+      ctx.save();
+      
+      for (let i = 0; i < 3; i++) {
+        const alpha = 0.1 - i * 0.03;
+        ctx.fillStyle = `rgba(255, 0, 255, ${alpha})`;
+        ctx.fillRect(0, 100 + i * 60, WORLD.w, 40);
+      }
+      
+      ctx.restore();
+    }
+
+    function drawPipe(p) {
+      const x = Math.round(p.x) + 0.5;
+      const w = WORLD.pipeW;
+      const gapY = p.gapY;
+      const gap = WORLD.pipeGap;
+      const topH = gapY - gap / 2;
+      const botY = gapY + gap / 2;
+      const botH = (WORLD.h - WORLD.groundH) - botY;
+
+      // Draw laser barriers
+      const drawLaserBarrier = (rx, ry, rw, rh, isTop) => {
+        // Barrier frame
+        ctx.fillStyle = '#1a0033';
+        ctx.fillRect(rx, ry, rw, rh);
+        
+        // Neon edges
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rx, ry, rw, rh);
+        
+        // Energy field
+        const grad = ctx.createLinearGradient(rx, ry, rx + rw, ry);
+        grad.addColorStop(0, 'rgba(255, 0, 255, 0.1)');
+        grad.addColorStop(0.5, 'rgba(255, 0, 255, 0.3)');
+        grad.addColorStop(1, 'rgba(255, 0, 255, 0.1)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(rx + 2, ry + 2, rw - 4, rh - 4);
+        
+        // Laser beams
+        ctx.save();
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ff00ff';
+        
+        const beamCount = Math.floor(rh / 20);
+        for (let i = 0; i < beamCount; i++) {
+          const y = ry + 10 + i * 20;
+          ctx.beginPath();
+          ctx.moveTo(rx + 5, y);
+          ctx.lineTo(rx + rw - 5, y);
+          ctx.stroke();
+        }
+        
+        // Warning lights
+        const t = performance.now() * 0.001;
+        const pulse = (Math.sin(t * 5) + 1) * 0.5;
+        ctx.fillStyle = `rgba(255, 0, 0, ${0.5 + pulse * 0.5})`;
+        ctx.fillRect(rx + rw/2 - 10, isTop ? ry + rh - 20 : ry + 10, 20, 8);
+        
+        ctx.restore();
+      };
+
+      // Top barrier
+      drawLaserBarrier(x, 0, w, topH, true);
+      // Bottom barrier
+      drawLaserBarrier(x, botY, w, botH, false);
+    }
+
+    function drawGround() {
+      const y = WORLD.h - WORLD.groundH;
+      
+      // Draw cyberpunk city skyline
+      ctx.fillStyle = '#0a0014';
+      ctx.fillRect(0, y, WORLD.w, WORLD.groundH);
+      
+      // Buildings
+      ctx.save();
+      const buildingOffset = Math.floor(groundX * 0.5) % 80;
+      
+      for (let i = -1; i < WORLD.w / 80 + 2; i++) {
+        const x = i * 80 + buildingOffset;
+        const h = 40 + (i % 3) * 20;
+        
+        // Building body
+        ctx.fillStyle = '#1a0033';
+        ctx.fillRect(x, y - h, 70, h);
+        
+        // Building outline
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y - h, 70, h);
+        
+        // Windows
+        ctx.fillStyle = '#00ffff';
+        for (let wy = y - h + 10; wy < y - 10; wy += 15) {
+          for (let wx = x + 10; wx < x + 60; wx += 15) {
+            if (Math.random() > 0.3) {
+              ctx.fillRect(wx, wy, 8, 8);
+            }
+          }
+        }
+        
+        // Neon signs
+        if (i % 4 === 0) {
+          ctx.save();
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = '#ff00ff';
+          ctx.fillStyle = '#ff00ff';
+          ctx.fillRect(x + 25, y - h - 10, 20, 5);
+          ctx.restore();
+        }
+      }
+      
+      // Ground level details
+      ctx.fillStyle = '#330066';
+      ctx.fillRect(0, y, WORLD.w, 5);
+      
+      // Grid lines
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < WORLD.w; i += 40) {
+        const lineX = (i + Math.floor(groundX) % 40);
+        ctx.beginPath();
+        ctx.moveTo(lineX, y);
+        ctx.lineTo(lineX, y + 20);
+        ctx.stroke();
+      }
+      
+      ctx.restore();
+    }
+
+    function drawBird() {
+      const x = Math.round(bird.x) + 0.5;
+      const y = Math.round(bird.y) + 0.5;
+      const r = bird.r;
+
+      // Draw trail
+      ctx.save();
+      bird.trail.forEach((t, i) => {
+        ctx.fillStyle = `rgba(0, 255, 255, ${t.alpha * 0.3})`;
+        ctx.fillRect(t.x - 2, t.y - 1, 4, 2);
+      });
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(bird.rot * 0.5);
+
+      // Drone body (hexagonal)
+      ctx.fillStyle = '#1a1a1a';
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI * 2) / 6;
+        const px = Math.cos(angle) * r;
+        const py = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Core glow
+      const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.8);
+      coreGrad.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
+      coreGrad.addColorStop(1, 'rgba(0, 255, 255, 0.1)');
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Energy core
+      ctx.fillStyle = '#00ffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Thrusters (boost effect)
+      if (bird.flapAnim > 0) {
+        const boost = easeOut(bird.flapAnim);
+        ctx.save();
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#00ffff';
+        
+        // Main thruster
+        const thrustGrad = ctx.createLinearGradient(0, r * 0.5, 0, r * (1 + boost));
+        thrustGrad.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
+        thrustGrad.addColorStop(1, 'rgba(0, 255, 255, 0)');
+        ctx.fillStyle = thrustGrad;
+        ctx.fillRect(-r * 0.3, r * 0.5, r * 0.6, r * boost * 0.8);
+        
+        // Side thrusters
+        ctx.fillStyle = 'rgba(255, 0, 255, 0.6)';
+        ctx.fillRect(-r * 0.8, r * 0.3, r * 0.3 * boost, r * 0.2);
+        ctx.fillRect(r * 0.5 * boost, r * 0.3, r * 0.3 * boost, r * 0.2);
+        
+        ctx.restore();
+      }
+
+      // Rotating scanner
+      ctx.save();
+      ctx.rotate(performance.now() * 0.003);
+      ctx.strokeStyle = 'rgba(255, 0, 255, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(r * 1.5, 0);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    function debugHit() {
+      // visualize bird collision radius
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,0,0,.5)';
+      ctx.beginPath();
+      ctx.arc(bird.x, bird.y, bird.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ----------------------
+    // Main loop
+    // ----------------------
+    function loop(t) {
+      if (!lastT) lastT = t;
+      const dt = clamp((t - lastT) / 1000, 0, 1/20); // cap dt for stability
+      lastT = t;
+
+      step(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ----------------------
+    // Boot
+    // ----------------------
+    function boot() {
+      fitCanvas();
+      resetGame();
+      requestAnimationFrame(loop);
+    }
+
+    // Initial overlay content (resetGame will set it at start too)
+    overlay.classList.remove('hidden');
+
+    // Kick things off when ready
+    window.addEventListener('load', boot, { once: true });
+  </script>
+</body>
+</html>

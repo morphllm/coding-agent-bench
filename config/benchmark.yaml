@@ -1,20 +1,12 @@
 # Set to true to run single-turn benchmarks (morph vs full file generation)
 # Set to false to run multi-turn benchmarks (morph vs search-replace)
-single_turn: true
+single_turn: false
 
 models:
   - name: "claude-sonnet-4"
     api_key_env: "ANTHROPIC_API_KEY"
     temperature: 0
     model_id: "claude-sonnet-4-20250514"
-  # - name: "gemini-flash-2.5"
-  #   api_key_env: "GOOGLE_API_KEY"
-  #   temperature: 0
-  #   model_id: "gemini-2.5-flash"
-  # - name: "gemini-pro-2.5"
-  #   api_key_env: "GOOGLE_API_KEY"
-  #   temperature: 0
-  #   model_id: "gemini-2.5-pro"
   - name: "claude-opus-4.1" 
     api_key_env: "ANTHROPIC_API_KEY" 
     temperature: 0
