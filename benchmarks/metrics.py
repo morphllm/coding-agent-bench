@@ -14,7 +14,6 @@ class BenchmarkResult:
     file: str
     query_id: str
     method: str
-    redundant_tokens: int
     time_generate_ms: float
     time_apply_ms: float
     total_tokens: int
@@ -48,7 +47,7 @@ class MetricsCollector:
         with open(filepath, 'w', newline='') as csvfile:
             fieldnames = [
                 'benchmark_id', 'model', 'file', 'query_id', 'method',
-                'redundant_tokens', 'time_generate_ms', 'time_apply_ms',
+                'time_generate_ms', 'time_apply_ms',
                 'total_tokens', 'timestamp', 'is_correct', 'iterations'
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -87,7 +86,6 @@ class MetricsCollector:
                 
                 if method_results:
                     summary[model][method] = {
-                        "avg_redundant_tokens": sum(r.redundant_tokens for r in method_results) / len(method_results),
                         "avg_time_generate_ms": sum(r.time_generate_ms for r in method_results) / len(method_results),
                         "avg_time_apply_ms": sum(r.time_apply_ms for r in method_results) / len(method_results),
                         "avg_total_tokens": sum(r.total_tokens for r in method_results) / len(method_results),
@@ -103,7 +101,6 @@ class MetricsCollector:
                 sr_data = summary[model]["search_replace"]
                 
                 comparison[model] = {
-                    "redundant_tokens_ratio": morph_data["avg_redundant_tokens"] / sr_data["avg_redundant_tokens"] if sr_data["avg_redundant_tokens"] > 0 else 0,
                     "time_generate_ratio": morph_data["avg_time_generate_ms"] / sr_data["avg_time_generate_ms"] if sr_data["avg_time_generate_ms"] > 0 else 0,
                     "time_apply_ratio": morph_data["avg_time_apply_ms"] / sr_data["avg_time_apply_ms"] if sr_data["avg_time_apply_ms"] > 0 else 0,
                     "total_tokens_ratio": morph_data["avg_total_tokens"] / sr_data["avg_total_tokens"] if sr_data["avg_total_tokens"] > 0 else 0

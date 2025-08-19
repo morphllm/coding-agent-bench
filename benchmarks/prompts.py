@@ -1,6 +1,7 @@
 def get_morph_prompt(file_contents: str, filename: str, query: str) -> str:
     return f"Call the morph tool to make the required changes. You must provide ALL edits in a SINGLE tool call. The file will NOT be shown to you again after your edits, do not look for confirmation or ask clarifications. Instruction: {query}\n\nfile name: {filename}\n\nfile content: {file_contents}"
 
+
 def get_sr_prompt(file_contents: str, query: str) -> str:
     return (
         f"Call the edit_file tool to make the required changes. You have been shown the ENTIRE file content.\n"
@@ -13,6 +14,7 @@ def get_sr_prompt(file_contents: str, query: str) -> str:
         f"instruction: {query}\n\n"
         f"file content:\n{file_contents}"
     )
+
 
 def get_full_file_prompt(file_contents: str, query: str) -> str:
     return (
@@ -29,6 +31,7 @@ def get_full_file_prompt(file_contents: str, query: str) -> str:
         f"Original file content:\n{file_contents}\n\n"
         f"Output the complete modified file below:"
     )
+
 
 JUDGMENT_PROMPT = """You are an expert code reviewer and judge.
 

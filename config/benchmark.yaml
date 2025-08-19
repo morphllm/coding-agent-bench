@@ -1,10 +1,6 @@
-# Set to true to enable multi-turn editing mode where models can iterate
-# Set to false for single-turn mode (original behavior)
-multi_turn: true
-
-# Set to true to enable full file generation mode where models output the complete modified file
-# When true, models output the entire file instead of using morph/SR tools
-full_file_generation: true
+# Set to true to run single-turn benchmarks (morph vs full file generation)
+# Set to false to run multi-turn benchmarks (morph vs search-replace)
+single_turn: false
 
 models:
   - name: "claude-sonnet-4"
@@ -19,30 +15,30 @@ models:
   #   api_key_env: "GOOGLE_API_KEY"
   #   temperature: 0
   #   model_id: "gemini-2.5-pro"
-  - name: "claude-opus-4.1" 
-    api_key_env: "ANTHROPIC_API_KEY" 
-    temperature: 0
-    model_id: "claude-opus-4-1-20250805"
-  - name: "claude-opus-4"
-    api_key_env: "ANTHROPIC_API_KEY"
-    temperature: 0
-    model_id: "claude-opus-4-20250514"
-  - name: "claude-sonnet-3.7"
-    api_key_env: "ANTHROPIC_API_KEY"
-    temperature: 0
-    model_id: "claude-3-7-sonnet-20250219"
-  - name: "gpt-4o"
-    api_key_env: "OPENAI_API_KEY"
-    temperature: 0
-    model_id: "gpt-4o-2024-11-20"
-  - name: "gpt-o3"
-    api_key_env: "OPENAI_API_KEY"
-    temperature: 0
-    model_id: "o3"
-  - name: "gpt-o4-mini"
-    api_key_env: "OPENAI_API_KEY"
-    temperature: 0
-    model_id: "o4-mini"
+  # - name: "claude-opus-4.1" 
+  #   api_key_env: "ANTHROPIC_API_KEY" 
+  #   temperature: 0
+  #   model_id: "claude-opus-4-1-20250805"
+  # - name: "claude-opus-4"
+  #   api_key_env: "ANTHROPIC_API_KEY"
+  #   temperature: 0
+  #   model_id: "claude-opus-4-20250514"
+  # - name: "claude-sonnet-3.7"
+  #   api_key_env: "ANTHROPIC_API_KEY"
+  #   temperature: 0
+  #   model_id: "claude-3-7-sonnet-20250219"
+  # - name: "gpt-4o"
+  #   api_key_env: "OPENAI_API_KEY"
+  #   temperature: 0
+  #   model_id: "gpt-4o-2024-11-20"
+  # - name: "gpt-o3"
+  #   api_key_env: "OPENAI_API_KEY"
+  #   temperature: 0
+  #   model_id: "o3"
+  # - name: "gpt-o4-mini"
+  #   api_key_env: "OPENAI_API_KEY"
+  #   temperature: 0
+  #   model_id: "o4-mini"
 
 test_files:
   - path: "corpus/day.tsx"
@@ -69,18 +65,6 @@ test_files:
         prompt: "Extract the branches inside paint() into two helpers: _applyBackgroundMaskCover() and _applyDefaultBasePaint(), then call them from paint() without changing behavior."
       - id: "refactor_applyPreDrawUpdaters"
         prompt: "Refactor the _applyPreDrawUpdaters method by extracting the color-style update logic and the transform-update logic into two smaller helper functions to improve readability while keeping behavior identical."
-  - path: "corpus/get_page_handler.ts"
-    queries:
-      - id: "gph_build_preload_header_helper"
-        prompt: "Extract a buildPreloadLinkHeader(preload_files, baseUrl, es6_preload) helper that dedupes, filters, and maps files to a single Link header string; call it from handle_page and only set the header when the returned string is non-empty."
-      - id: "gph_set_html_content_type_helper"
-        prompt: "Introduce a MIME_HTML_TYPE constant and a setHtmlContentType(res) helper, and use it in both handle_page and bail so all HTML responses set a consistent Content-Type."
-      - id: "gph_refactor_css_chunks_helper"
-        prompt: "Refactor the css_chunks Set logic into a small helper function called getCssChunks to improve readability."
-      - id: "gph_extract_safe_serialize_helper"
-        prompt: "Extract a helper function safe_serialize(data, onError?) that wraps try_serialize and guarantees a non-null string, then use it for both preloaded data serialization and session serialization in handle_page."
-      - id: "gph_extract_fetch_credentials_helper"
-        prompt: "Extract the credential and cookie-merging logic inside preload_context.fetch into a helper attachCredentials(url, opts, req, res) and call it from fetch to reduce nesting while preserving behavior."
   - path: "corpus/subgraph_rewriter.py"
     queries:
       - id: "sr_gm_optional_signature_and_guard"
@@ -129,5 +113,30 @@ test_files:
         prompt: "Replace the Lorenz system with the Rössler attractor equations while keeping the rest of the visualizer unchanged."
       - id: "toggle_two_attractors"
         prompt: "Add a new command line option so that running with --rossler shows the Rössler attractor, otherwise default to Lorenz."
+  - path: "corpus/mandelbrot.rs"
+    queries:
+      - id: "mandelbrot_add_color"
+        prompt: "Make the ASCII output use ANSI terminal colors instead of just grayscale characters."
+      - id: "mandelbrot_interactive_zooming"
+        prompt: "Let me press the arrow keys to pan around and +/- to zoom in and out instead of rerunning with arguments."
+      - id: "mandelbrot_palette_switch"
+        prompt: "Add a command-line option to switch between multiple palettes, like symbols, numbers, or emoji."
+      - id: "mandelbrot_parallel_rendering"
+        prompt: "Make rendering run in parallel using multiple threads so it's faster on large widths/heights."
+      - id: "mandelbrot_save_to_file"
+        prompt: "Add a command-line option to save the rendered image to a file instead of printing to stdout."
+  - path: "corpus/csvtools.lua"
+    queries:
+      - id: "csvtools_tsv_autodetect"
+        prompt: "Auto-detect delimiter by scanning the header row; prefer tab if it appears more than commas. Keep `delim=` override working."
+      - id: "csvtools_join_on_key"
+        prompt: "Add a `join` command: `join left.csv right.csv on=sku type=inner|left`. Implement hash join on a single key; write merged rows with disambiguated headers."
+      - id: "csvtools_stats_percentiles"
+        prompt: "Extend `stats` with `pctl=50,90,99` using t-digest or reservoir approximation; print as extra columns."
+      - id: "csvtools_delete_tojson"
+        prompt: "Remove the `tojson` command and all related code paths and help text. Only CSV and table outputs remain."
+      - id: "csvtools_delete_sample"
+        prompt: "Remove the `sample` command and any documentation for it; keep the rest of the toolkit intact."
+
 
 output_dir: "results/"
