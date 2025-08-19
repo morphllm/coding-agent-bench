@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NeonBird 2077 – Cyberpunk Flapper</title>
+  <style>
+    /* ------------------------------
+       Cyberpunk themed styling
+       ------------------------------ */
+    :root {
+      --bg: #000810;
+      --panel: #0a0a15;
+      --text: #00ffff;
+      --muted: #4d79a4;
+      --accent: #ff0080;
+      --accent-2: #00ff41;
+      --danger: #ff0040;
+      --gold: #ffaa00;
+      --pipe: #ff0080;
+      --neon-blue: #00ffff;
+      --neon-pink: #ff0080;
+      --neon-green: #00ff41;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at 70% 20%, #1a0033, var(--bg));
+      color: var(--text);
+      font: 16px/1.5 "Courier New", monospace;
+      display: grid;
+      place-items: center;
+      text-shadow: 0 0 5px currentColor;
+    }
+
+    .wrap {
+      width: min(92vw, 560px);
+      display: grid;
+      gap: 12px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: color-mix(in oklab, var(--panel) 92%, var(--neon-blue) 8%);
+      border: 1px solid var(--neon-blue);
+      border-radius: 14px;
+      padding: 10px 14px;
+      box-shadow: 0 10px 30px rgb(0 255 255 / 0.3), inset 0 1px 0 rgb(0 255 255 / 0.1);
+    }
+
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      letter-spacing: 0.3px;
+      color: var(--neon-blue);
+      text-shadow: 0 0 8px var(--neon-blue);
+    }
+
+    header .controls {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button, .btn {
+      background: linear-gradient(180deg, color-mix(in oklab, var(--panel), var(--neon-pink) 20%), var(--panel));
+      color: var(--neon-pink);
+      border: 1px solid var(--neon-pink);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 600;
+      font-family: "Courier New", monospace;
+      cursor: pointer;
+      transition: transform .08s ease, filter .2s, box-shadow .2s;
+      box-shadow: 0 4px 14px rgb(255 0 128 / 0.3), inset 0 1px 0 rgb(255 0 128 / 0.1);
+      text-shadow: 0 0 5px currentColor;
+    }
+
+    button:hover { 
+      filter: brightness(1.2); 
+      box-shadow: 0 4px 20px rgb(255 0 128 / 0.5), inset 0 1px 0 rgb(255 0 128 / 0.2);
+    }
+    button:active { transform: translateY(1px) scale(0.98); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--panel) 85%, var(--neon-green) 15%);
+      border: 1px solid var(--neon-green);
+      color: var(--neon-green);
+      font-size: 12px;
+      user-select: none;
+      text-shadow: 0 0 3px currentColor;
+    }
+
+    .board {
+      position: relative;
+      background: linear-gradient(180deg, #001122, #002244 45%, #003366 60%, #004488 100%);
+      border: 1px solid var(--neon-blue);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgb(0 255 255 / 0.4), 0 0 20px rgb(255 0 128 / 0.2);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: linear-gradient(180deg, rgb(0 0 0 / 0.7), rgb(0 20 40 / 0.5));
+      color: var(--neon-blue);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .card {
+      background: rgb(0 255 255 / 0.1);
+      border: 1px solid var(--neon-blue);
+      backdrop-filter: blur(8px);
+      padding: 18px 20px;
+      border-radius: 14px;
+      max-width: 92%;
+      box-shadow: 0 0 20px rgb(0 255 255 / 0.3);
+    }
+
+    .title { 
+      font-size: 22px; 
+      margin: 0 0 8px; 
+      color: var(--neon-pink);
+      text-shadow: 0 0 10px var(--neon-pink);
+    }
+    .subtitle { 
+      margin: 0 0 10px; 
+      opacity: 0.9; 
+      color: var(--neon-blue);
+    }
+    .kbd {
+      display: inline-grid;
+      grid-auto-flow: column;
+      gap: 4px;
+      background: rgb(0 0 0 / 0.6);
+      border: 1px solid var(--neon-green);
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      color: var(--neon-green);
+      text-shadow: 0 0 5px currentColor;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: -4px;
+      padding: 0 6px 4px 6px;
+    }
+
+    .scorehud {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      background: rgb(0 0 0 / 0.3);
+      border: 1px solid var(--neon-blue);
+      padding: 6px 10px;
+      border-radius: 8px;
+      color: var(--neon-blue);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 8px currentColor;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      user-select: none;
+      box-shadow: 0 0 15px rgb(0 255 255 / 0.3);
+    }
+
+    .scorehud .dot { 
+      width: 6px; 
+      height: 6px; 
+      border-radius: 999px; 
+      background: var(--neon-pink); 
+      box-shadow: 0 0 5px var(--neon-pink);
+    }
+
+    .hidden { display: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="NeonBird 2077 Game">
+    <header>
+      <h1>NeonBird 2077 — Cyberpunk Flapper</h1>
+      <div class="controls">
+        <span class="pill" title="Controls"><strong>Space</strong> / <strong>Click</strong> to boost</span>
+        <button id="btnStart" aria-label="Start or Restart">JACK IN</button>
+        <button id="btnPause" aria-label="Pause or Resume">PAUSE</button>
+      </div>
+    </header>
+
+    <div class="board" id="board">
+      <canvas id="game" width="480" height="640" aria-label="Game canvas"></canvas>
+      <div class="scorehud" id="hud"><span class="dot"></span> <span id="score">0</span></div>
+      <div class="overlay" id="overlay">
+        <div class="card">
+          <h2 class="title">INITIALIZE NEURAL LINK</h2>
+          <p class="subtitle">Navigate through data streams. Avoid system defenses.</p>
+          <div class="kbd">Space • Click • Boost</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>
+        <span>High score: <strong id="hiscore">0</strong></span>
+        <span class="sr-only" id="live" aria-live="polite"></span>
+      </div>
+      <div>Built in Night City • <span title="Device Pixel Ratio">DPR:</span> <span id="dpr">1</span></div>
+    </footer>
+  </div>
+
+  <script>
+    /* ======================================================
+       NeonBird 2077 (Cyberpunk Flappy Bird) — Single File
+       - Canvas-based renderer with DPR scaling
+       - Keyboard/mouse/touch controls
+       - Pause/Resume, Restart, Scoring & High score (localStorage)
+       - Cyberpunk themed audio beeps
+       - ~500 lines with comments
+       ====================================================== */
+
+    // ----------------------
+    // Utility helpers
+    // ----------------------
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const now = () => performance.now();
+
+    // Easing for small animations
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    // ----------------------
+    // Audio (cyberpunk synth beeps)
+    // ----------------------
+    let audioCtx;
+    function beep(freq = 880, dur = 0.06, type = "sawtooth", vol = 0.2) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.01);
+      } catch (e) {
+        // Audio may be blocked—ignore gracefully
+      }
+    }
+
+    const SFX = {
+      flap: () => beep(1200, 0.08, "sawtooth", 0.2),
+      score: () => beep(1600, 0.1, "square", 0.25),
+      hit: () => beep(80, 0.4, "sawtooth", 0.35),
+    };
+
+    // ----------------------
+    // Game constants & state
+    // ----------------------
+    const cvs = document.getElementById('game');
+    const ctx = cvs.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const board = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const hiEl = document.getElementById('hiscore');
+    const dprEl = document.getElementById('dpr');
+    const btnStart = document.getElementById('btnStart');
+    const btnPause = document.getElementById('btnPause');
+    const live = document.getElementById('live');
+
+    const WORLD = {
+      w: 480,
+      h: 640,
+      gravity: 1800,    // px/s^2
+      jumpVel: -500,    // px/s (up is negative)
+      termVel: 900,     // px/s
+      pipeGap: 150,     // vertical gap
+      pipeW: 80,
+      pipeMin: 80,
+      pipeMax: 400,
+      pipeEvery: 1550,  // ms between pipes
+      scrollSpeed: 180, // px/s
+      groundH: 96,
+    };
+
+    // DPR-aware canvas sizing
+    function fitCanvas() {
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+      dprEl.textContent = dpr.toFixed(2);
+      const { width, height } = cvs.getBoundingClientRect();
+      const w = Math.floor(width * dpr);
+      const h = Math.floor(height * dpr);
+      if (cvs.width !== w || cvs.height !== h) {
+        cvs.width = w; cvs.height = h;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing to CSS pixels
+    }
+
+    // Bird entity
+    const bird = {
+      x: 140,
+      y: 0,
+      r: 16,
+      vy: 0,
+      rot: 0,
+      flapAnim: 0,
+      alive: true,
+    };
+
+    // Pipes: each pipe pair is { x, gapY, passed }
+    const pipes = [];
+
+    // Ground scroll offset
+    let groundX = 0;
+
+    // Game state
+    let started = false;
+    let paused = false;
+    let gameOver = false;
+    let score = 0;
+    let hiscore = +localStorage.getItem('neonbird.hiscore') || 0;
+    hiEl.textContent = hiscore;
+
+    let lastT = 0;
+    let spawnT = 0;
+
+    // ----------------------
+    // Setup & reset
+    // ----------------------
+    function resetGame() {
+      started = false;
+      paused = false;
+      gameOver = false;
+      score = 0;
+      scoreEl.textContent = '0';
+      live.textContent = 'System reset. Jack in to start neural link.';
+
+      bird.y = WORLD.h * 0.4;
+      bird.vy = 0;
+      bird.rot = 0;
+      bird.alive = true;
+      bird.flapAnim = 0;
+
+      pipes.length = 0;
+      spawnT = 0;
+      groundX = 0;
+
+      overlay.classList.remove('hidden');
+      btnPause.textContent = 'PAUSE';
+    }
+
+    // Spawn a pipe pair
+    function spawnPipe() {
+      const gapY = rand(WORLD.pipeMin, WORLD.h - WORLD.pipeMax);
+      pipes.push({ x: WORLD.w + 10, gapY, passed: false });
+    }
+
+    // ----------------------
+    // Controls
+    // ----------------------
+    function doFlap() {
+      if (!started) started = true;
+      if (gameOver) return;
+      if (paused) return;
+      bird.vy = WORLD.jumpVel;
+      bird.flapAnim = 1; // trigger wing animation
+      SFX.flap();
+    }
+
+    function doPauseToggle() {
+      if (!started || gameOver) return;
+      paused = !paused;
+      btnPause.textContent = paused ? 'RESUME' : 'PAUSE';
+      live.textContent = paused ? 'System paused.' : 'Neural link resumed.';
+    }
+
+    function onKey(e) {
+      if (e.repeat) return;
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (gameOver) { resetGame(); return; }
+        overlay.classList.add('hidden');
+        doFlap();
+      } else if (e.code === 'KeyP') {
+        doPauseToggle();
+      } else if (e.code === 'Enter') {
+        if (gameOver) resetGame();
+      }
+    }
+
+    // Pointer controls
+    function onPointerDown() {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      doFlap();
+    }
+
+    btnStart.addEventListener('click', () => {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      started = true;
+      doFlap();
+    });
+    btnPause.addEventListener('click', doPauseToggle);
+
+    window.addEventListener('keydown', onKey);
+    board.addEventListener('pointerdown', onPointerDown);
+
+    // Resize handling
+    const ro = new ResizeObserver(fitCanvas);
+    ro.observe(cvs);
+    window.addEventListener('orientationchange', fitCanvas);
+
+    // ----------------------
+    // Physics & collision
+    // ----------------------
+    function step(dt) {
+      // dt in seconds
+      if (!started || paused || gameOver) return;
+
+      // Bird physics
+      bird.vy += WORLD.gravity * dt;
+      bird.vy = clamp(bird.vy, -WORLD.termVel, WORLD.termVel);
+      bird.y += bird.vy * dt;
+
+      // Tilt based on velocity
+      bird.rot = clamp(bird.vy / WORLD.termVel, -1, 1) * 1.2;
+
+      // Wing anim decay
+      bird.flapAnim = Math.max(0, bird.flapAnim - dt * 3.2);
+
+      // Spawn pipes
+      spawnT += dt * 1000;
+      if (spawnT > WORLD.pipeEvery) {
+        spawnT = 0;
+        spawnPipe();
+      }
+
+      // Move pipes & scoring
+      for (let i = pipes.length - 1; i >= 0; i--) {
+        const p = pipes[i];
+        p.x -= WORLD.scrollSpeed * dt;
+        // Offscreen cleanup
+        if (p.x + WORLD.pipeW < -10) {
+          pipes.splice(i, 1);
+          continue;
+        }
+        // Scoring when bird passes center of pair
+        if (!p.passed && p.x + WORLD.pipeW < bird.x) {
+          p.passed = true;
+          score++;
+          scoreEl.textContent = String(score);
+          live.textContent = `Data packets processed: ${score}`;
+          SFX.score();
+        }
+      }
+
+      // Ground scroll
+      groundX = (groundX - WORLD.scrollSpeed * dt) % WORLD.w;
+
+      // Collisions with world bounds
+      const topBound = 0 + 2;
+      const bottomBound = WORLD.h - WORLD.groundH - 2;
+      if (bird.y - bird.r < topBound) {
+        bird.y = topBound + bird.r;
+        bird.vy = 0;
+      }
+      if (bird.y + bird.r > bottomBound) {
+        bird.y = bottomBound - bird.r;
+        endGame();
+        return;
+      }
+
+      // Collisions with pipes
+      // Bird approximated as circle, pipes as rects
+      for (const p of pipes) {
+        const bx = bird.x, by = bird.y, br = bird.r;
+        const Rx = p.x, Ry1 = 0, Rw = WORLD.pipeW;
+        const Rh1 = p.gapY - WORLD.pipeGap / 2;          // top pipe height
+        const Ry2 = p.gapY + WORLD.pipeGap / 2;          // bottom pipe y
+        const Rh2 = WORLD.h - WORLD.groundH - Ry2;       // bottom pipe height
+
+        if (circleRectCollide(bx, by, br, Rx, Ry1, Rw, Rh1) ||
+            circleRectCollide(bx, by, br, Rx, Ry2, Rw, Rh2)) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    function circleRectCollide(cx, cy, cr, rx, ry, rw, rh) {
+      const testX = clamp(cx, rx, rx + rw);
+      const testY = clamp(cy, ry, ry + rh);
+      const dx = cx - testX;
+      const dy = cy - testY;
+      return (dx * dx + dy * dy) <= cr * cr;
+    }
+
+    function endGame() {
+      if (gameOver) return;
+      gameOver = true;
+      started = false;
+      paused = false;
+      SFX.hit();
+      live.textContent = `Neural link severed! Data packets processed: ${score}.`;
+      if (score > hiscore) {
+        hiscore = score;
+        localStorage.setItem('neonbird.hiscore', String(hiscore));
+        hiEl.textContent = hiscore;
+      }
+      showGameOverOverlay();
+    }
+
+    function showGameOverOverlay() {
+      // Fade-in overlay with final score
+      overlay.innerHTML = `
+        <div class="card">
+          <h2 class="title">CONNECTION TERMINATED</h2>
+          <p class="subtitle">Data packets: <strong>${score}</strong> • Best run: <strong>${hiscore}</strong></p>
+          <div class="kbd">Press <strong>Enter</strong> or click <strong>JACK IN</strong> to reconnect</div>
+        </div>`;
+      overlay.classList.remove('hidden');
+    }
+
+    // ----------------------
+    // Rendering
+    // ----------------------
+    function draw() {
+      // Clear (sky already drawn via CSS background; fill fallback)
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+      // Cyberpunk sky
+      drawCyberpunkSky();
+
+      // Digital clouds/data streams
+      drawDataStreams();
+
+      // Pipes (now data barriers)
+      for (const p of pipes) drawDataBarrier(p);
+
+      // Ground (now digital grid)
+      drawDigitalGround();
+
+      // Bird (now cyber drone)
+      drawCyberDrone();
+
+      // Glitch effects
+      drawGlitchEffects();
+
+      // Optional: debug hit areas (toggle if needed)
+      // debugHit();
+    }
+
+    function drawCyberpunkSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, WORLD.h);
+      g.addColorStop(0, '#001122');
+      g.addColorStop(0.3, '#002244');
+      g.addColorStop(0.6, '#003366');
+      g.addColorStop(1, '#004488');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+      // Grid lines
+      ctx.save();
+      ctx.globalAlpha = 0.1;
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < WORLD.w; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, WORLD.h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < WORLD.h; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(WORLD.w, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawDataStreams() {
+      const t = (performance.now() * 0.05) % (WORLD.w * 20);
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+
+      // Data stream function
+      const dataStream = (x, y, s) => {
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
+        for (let i = 0; i < 5; i++) {
+          ctx.fillRect(x + i * 15, y + Math.sin(t * 0.01 + i) * 5, 8 * s, 3 * s);
+        }
+        ctx.shadowBlur = 0;
+      };
+
+      const baseY = 80;
+      for (let i = 0; i < 6; i++) {
+        const x = ((i * 120) - (t * 0.3)) % (WORLD.w + 120) - 60;
+        dataStream(x + 20, baseY + (i % 3) * 40, 1 + (i % 2) * 0.3);
+      }
+      ctx.restore();
+    }
+
+    function drawDataBarrier(p) {
+      const x = Math.round(p.x) + 0.5;
+      const w = WORLD.pipeW;
+      const gapY = p.gapY;
+      const gap = WORLD.pipeGap;
+      const topH = gapY - gap / 2;
+      const botY = gapY + gap / 2;
+      const botH = (WORLD.h - WORLD.groundH) - botY;
+
+      const drawBarrier = (rx, ry, rw, rh) => {
+        // Main barrier body
+        ctx.fillStyle = '#ff0080';
+        ctx.shadowColor = '#ff0080';
+        ctx.shadowBlur = 15;
+        ctx.fillRect(rx + 2, ry, rw - 4, rh);
+        ctx.shadowBlur = 0;
+        
+        // Neon edges
+        ctx.fillStyle = '#00ffff';
+        ctx.fillRect(rx, ry, 2, rh);
+        ctx.fillRect(rx + rw - 2, ry, 2, rh);
+        
+        // Digital pattern
+        ctx.fillStyle = '#ffffff';
+        for (let i = 8; i < rh - 8; i += 16) {
+          for (let j = 8; j < rw - 8; j += 12) {
+            if (Math.random() > 0.7) {
+              ctx.fillRect(rx + j, ry + i, 4, 4);
+            }
+          }
+        }
+        
+        // Capacitor ends
+        ctx.fillStyle = '#00ff41';
+        ctx.shadowColor = '#00ff41';
+        ctx.shadowBlur = 8;
+        ctx.fillRect(rx - 4, ry + rh - 8, rw + 8, 8);
+        ctx.shadowBlur = 0;
+      };
+
+      // Top barrier
+      drawBarrier(x, 0, w, topH);
+      // Bottom barrier
+      drawBarrier(x, botY, w, botH);
+    }
+
+    function drawDigitalGround() {
+      const y = WORLD.h - WORLD.groundH;
+      
+      // Base platform
+      ctx.fillStyle = '#000011';
+      ctx.fillRect(0, y + 16, WORLD.w, WORLD.groundH - 16);
+      
+      // Circuit board pattern
+      ctx.fillStyle = '#00ff41';
+      ctx.shadowColor = '#00ff41';
+      ctx.shadowBlur = 5;
+      for (let i = 0; i < WORLD.w; i += 30) {
+        const offset = (i + Math.floor(groundX) % 30);
+        ctx.fillRect(offset, y + 20, 20, 2);
+        ctx.fillRect(offset + 8, y + 20, 2, 20);
+      }
+      ctx.shadowBlur = 0;
+      
+      // Top edge glow
+      ctx.fillStyle = '#00ffff';
+      ctx.shadowColor = '#00ffff';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(0, y, WORLD.w, 4);
+      ctx.shadowBlur = 0;
+      
+      // Digital dots
+      ctx.fillStyle = '#ff0080';
+      for (let i = 0; i < WORLD.w; i += 50) {
+        const offset = (i + Math.floor(groundX) % 50);
+        ctx.fillRect(offset, y + 35, 3, 3);
+      }
+    }
+
+    function drawCyberDrone() {
+      const x = Math.round(bird.x) + 0.5;
+      const y = Math.round(bird.y) + 0.5;
+      const r = bird.r;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(bird.rot);
+
+      // Main body core
+      ctx.fillStyle = '#00ffff';
+      ctx.shadowColor = '#00ffff';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Outer shell
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Wing thrusters
+      const flap = easeOut(bird.flapAnim);
+      ctx.save();
+      ctx.rotate((-0.6 + flap * 1.2));
+      ctx.fillStyle = '#ff0080';
+      ctx.shadowColor = '#ff0080';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(-r * 0.8, -r * 0.3, r * 1.2, r * 0.15);
+      ctx.fillRect(-r * 0.8, r * 0.15, r * 1.2, r * 0.15);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // Central eye/sensor
+      ctx.fillStyle = '#ff0040';
+      ctx.shadowColor = '#ff0040';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(r * 0.2, -r * 0.1, r * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Scanner line
+      ctx.strokeStyle = '#00ff41';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.5, 0);
+      ctx.lineTo(r * 1.5, 0);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawGlitchEffects() {
+      if (Math.random() < 0.95) return; // Only glitch occasionally
+      
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = Math.random() > 0.5 ? '#ff0080' : '#00ffff';
+      
+      for (let i = 0; i < 3; i++) {
+        const x = Math.random() * WORLD.w;
+        const y = Math.random() * WORLD.h;
+        const w = Math.random() * 100 + 20;
+        const h = Math.random() * 5 + 1;
+        ctx.fillRect(x, y, w, h);
+      }
+      ctx.restore();
+    }
+
+    function debugHit() {
+      // visualize bird collision radius
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,0,128,.7)';
+      ctx.beginPath();
+      ctx.arc(bird.x, bird.y, bird.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ----------------------
+    // Main loop
+    // ----------------------
+    function loop(t) {
+      if (!lastT) lastT = t;
+      const dt = clamp((t - lastT) / 1000, 0, 1/20); // cap dt for stability
+      lastT = t;
+
+      step(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ----------------------
+    // Boot
+    // ----------------------
+    function boot() {
+      fitCanvas();
+      resetGame();
+      requestAnimationFrame(loop);
+    }
+
+    // Initial overlay content (resetGame will set it at start too)
+    overlay.classList.remove('hidden');
+
+    // Kick things off when ready
+    window.addEventListener('load', boot, { once: true });
+  </script>
+</body>
+</html>

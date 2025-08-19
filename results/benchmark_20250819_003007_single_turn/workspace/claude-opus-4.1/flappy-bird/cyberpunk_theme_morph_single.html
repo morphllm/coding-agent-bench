@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cyber Bird – Neon Rush</title>
+  <style>
+    /* ------------------------------
+       Cyberpunk themed styling
+       ------------------------------ */
+    :root {
+      --bg: #0a0014;
+      --panel: #1a0d26;
+      --text: #f0e6ff;
+      --muted: #b8a3d4;
+      --accent: #ff00ff;
+      --accent-2: #00ffff;
+      --danger: #ff0080;
+      --gold: #ffff00;
+      --neon-pink: #ff10f0;
+      --neon-blue: #00d4ff;
+      --neon-green: #39ff14;
+      --dark-purple: #2d1b69;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0a0014, #1a0d26 40%, #2d1b69 100%);
+      color: var(--text);
+      font: 16px/1.5 'Courier New', monospace;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(255, 0, 255, 0.03) 2px,
+          rgba(255, 0, 255, 0.03) 4px
+        );
+      pointer-events: none;
+      animation: scanlines 8s linear infinite;
+    }
+
+    @keyframes scanlines {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(10px); }
+    }
+
+    .wrap {
+      width: min(92vw, 560px);
+      display: grid;
+      gap: 12px;
+      position: relative;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.1));
+      border: 1px solid var(--neon-pink);
+      border-radius: 0;
+      padding: 10px 14px;
+      box-shadow: 
+        0 0 20px rgba(255, 0, 255, 0.5),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+      animation: scan 3s linear infinite;
+    }
+
+    @keyframes scan {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px var(--neon-pink);
+    }
+
+    header .controls {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button, .btn {
+      background: linear-gradient(135deg, rgba(255, 0, 255, 0.2), rgba(0, 255, 255, 0.2));
+      color: var(--text);
+      border: 1px solid var(--neon-blue);
+      border-radius: 0;
+      padding: 8px 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 
+        0 0 10px rgba(0, 255, 255, 0.5),
+        inset 0 0 10px rgba(255, 0, 255, 0.1);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: 'Courier New', monospace;
+    }
+
+    button:hover { 
+      filter: brightness(1.3);
+      box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.8),
+        inset 0 0 20px rgba(255, 0, 255, 0.3);
+    }
+    button:active { transform: scale(0.98); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 0;
+      background: rgba(0, 255, 255, 0.1);
+      border: 1px solid var(--neon-blue);
+      color: var(--neon-blue);
+      font-size: 12px;
+      user-select: none;
+      text-shadow: 0 0 5px currentColor;
+    }
+
+    .board {
+      position: relative;
+      background: #0a0014;
+      border: 1px solid var(--neon-pink);
+      border-radius: 0;
+      overflow: hidden;
+      box-shadow: 
+        0 0 30px rgba(255, 0, 255, 0.5),
+        inset 0 0 30px rgba(0, 255, 255, 0.1);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(10, 0, 20, 0.9), rgba(45, 27, 105, 0.7));
+      color: white;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .card {
+      background: linear-gradient(135deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.1));
+      border: 2px solid var(--neon-pink);
+      backdrop-filter: blur(8px);
+      padding: 18px 20px;
+      border-radius: 0;
+      max-width: 92%;
+      box-shadow: 
+        0 0 30px rgba(255, 0, 255, 0.6),
+        inset 0 0 20px rgba(0, 255, 255, 0.2);
+    }
+
+    .title { 
+      font-size: 22px; 
+      margin: 0 0 8px; 
+      text-transform: uppercase;
+      text-shadow: 0 0 15px var(--neon-pink);
+      letter-spacing: 3px;
+    }
+    .subtitle { 
+      margin: 0 0 10px; 
+      opacity: 0.9;
+      text-shadow: 0 0 8px var(--neon-blue);
+    }
+    .kbd {
+      display: inline-grid;
+      grid-auto-flow: column;
+      gap: 4px;
+      background: rgba(0, 255, 255, 0.1);
+      border: 1px solid var(--neon-blue);
+      padding: 3px 8px;
+      border-radius: 0;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      text-shadow: 0 0 5px var(--neon-blue);
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: -4px;
+      padding: 0 6px 4px 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .scorehud {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      background: rgba(255, 0, 255, 0.2);
+      border: 1px solid var(--neon-pink);
+      padding: 6px 10px;
+      border-radius: 0;
+      color: white;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px var(--neon-pink);
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      user-select: none;
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.6);
+      font-family: 'Courier New', monospace;
+    }
+
+    .scorehud .dot { 
+      width: 6px; 
+      height: 6px; 
+      border-radius: 0; 
+      background: var(--neon-green);
+      box-shadow: 0 0 10px var(--neon-green);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .hidden { display: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="Cyber Bird Game">
+    <header>
+      <h1>Cyber Bird — Neon Rush</h1>
+      <div class="controls">
+        <span class="pill" title="Controls"><strong>Space</strong> / <strong>Click</strong> to boost</span>
+        <button id="btnStart" aria-label="Start or Restart">[ INIT ]</button>
+        <button id="btnPause" aria-label="Pause or Resume">[ PAUSE ]</button>
+      </div>
+    </header>
+
+    <div class="board" id="board">
+      <canvas id="game" width="480" height="640" aria-label="Game canvas"></canvas>
+      <div class="scorehud" id="hud"><span class="dot"></span> <span id="score">0</span></div>
+      <div class="overlay" id="overlay">
+        <div class="card">
+          <h2 class="title">System Ready</h2>
+          <p class="subtitle">Navigate through the neon barriers. Avoid system crashes.</p>
+          <div class="kbd">Space • Click • Tap</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>
+        <span>High score: <strong id="hiscore">0</strong></span>
+        <span class="sr-only" id="live" aria-live="polite"></span>
+      </div>
+      <div>Cyberpunk Edition • <span title="Device Pixel Ratio">DPR:</span> <span id="dpr">1</span></div>
+    </footer>
+  </div>
+
+  <script>
+    /* ======================================================
+       Cyber Bird (Vanilla JS + Canvas) — Cyberpunk Edition
+       - Canvas-based renderer with DPR scaling
+       - Keyboard/mouse/touch controls
+       - Pause/Resume, Restart, Scoring & High score (localStorage)
+       - Cyberpunk themed with neon aesthetics
+       ====================================================== */
+
+    // ----------------------
+    // Utility helpers
+    // ----------------------
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const now = () => performance.now();
+
+    // Easing for small animations
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    // ----------------------
+    // Audio (cyberpunk synth beeps)
+    // ----------------------
+    let audioCtx;
+    function beep(freq = 880, dur = 0.06, type = "sine", vol = 0.2) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.01);
+      } catch (e) {
+        // Audio may be blocked—ignore gracefully
+      }
+    }
+
+    const SFX = {
+      flap: () => beep(440, 0.05, "sawtooth", 0.15),
+      score: () => beep(1600, 0.1, "square", 0.2),
+      hit: () => beep(80, 0.3, "sawtooth", 0.35),
+    };
+
+    // ----------------------
+    // Game constants & state
+    // ----------------------
+    const cvs = document.getElementById('game');
+    const ctx = cvs.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const board = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const hiEl = document.getElementById('hiscore');
+    const dprEl = document.getElementById('dpr');
+    const btnStart = document.getElementById('btnStart');
+    const btnPause = document.getElementById('btnPause');
+    const live = document.getElementById('live');
+
+    const WORLD = {
+      w: 480,
+      h: 640,
+      gravity: 1800,    // px/s^2
+      jumpVel: -500,    // px/s (up is negative)
+      termVel: 900,     // px/s
+      pipeGap: 150,     // vertical gap
+      pipeW: 80,
+      pipeMin: 80,
+      pipeMax: 400,
+      pipeEvery: 1550,  // ms between pipes
+      scrollSpeed: 180, // px/s
+      groundH: 96,
+    };
+
+    // DPR-aware canvas sizing
+    function fitCanvas() {
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+      dprEl.textContent = dpr.toFixed(2);
+      const { width, height } = cvs.getBoundingClientRect();
+      const w = Math.floor(width * dpr);
+      const h = Math.floor(height * dpr);
+      if (cvs.width !== w || cvs.height !== h) {
+        cvs.width = w; cvs.height = h;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing to CSS pixels
+    }
+
+    // Bird entity
+    const bird = {
+      x: 140,
+      y: 0,
+      r: 16,
+      vy: 0,
+      rot: 0,
+      flapAnim: 0,
+      alive: true,
+      trail: [], // for cyberpunk trail effect
+    };
+
+    // Pipes: each pipe pair is { x, gapY, passed }
+    const pipes = [];
+
+    // Ground scroll offset
+    let groundX = 0;
+
+    // Particles for effects
+    const particles = [];
+
+    // Game state
+    let started = false;
+    let paused = false;
+    let gameOver = false;
+    let score = 0;
+    let hiscore = +localStorage.getItem('cyberbird.hiscore') || 0;
+    hiEl.textContent = hiscore;
+
+    let lastT = 0;
+    let spawnT = 0;
+
+    // ----------------------
+    // Setup & reset
+    // ----------------------
+    function resetGame() {
+      started = false;
+      paused = false;
+      gameOver = false;
+      score = 0;
+      scoreEl.textContent = '0';
+      live.textContent = 'System initialized. Press Space to engage thrusters.';
+
+      bird.y = WORLD.h * 0.4;
+      bird.vy = 0;
+      bird.rot = 0;
+      bird.alive = true;
+      bird.flapAnim = 0;
+      bird.trail = [];
+
+      pipes.length = 0;
+      particles.length = 0;
+      spawnT = 0;
+      groundX = 0;
+
+      overlay.classList.remove('hidden');
+      btnPause.textContent = '[ PAUSE ]';
+    }
+
+    // Spawn a pipe pair
+    function spawnPipe() {
+      const gapY = rand(WORLD.pipeMin, WORLD.h - WORLD.pipeMax);
+      pipes.push({ x: WORLD.w + 10, gapY, passed: false });
+    }
+
+    // Spawn particles
+    function spawnParticles(x, y, count = 5) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x, y,
+          vx: rand(-100, 100),
+          vy: rand(-200, -50),
+          life: 1,
+          color: Math.random() > 0.5 ? '#ff00ff' : '#00ffff'
+        });
+      }
+    }
+
+    // ----------------------
+    // Controls
+    // ----------------------
+    function doFlap() {
+      if (!started) started = true;
+      if (gameOver) return;
+      if (paused) return;
+      bird.vy = WORLD.jumpVel;
+      bird.flapAnim = 1; // trigger wing animation
+      spawnParticles(bird.x, bird.y, 3);
+      SFX.flap();
+    }
+
+    function doPauseToggle() {
+      if (!started || gameOver) return;
+      paused = !paused;
+      btnPause.textContent = paused ? '[ RESUME ]' : '[ PAUSE ]';
+      live.textContent = paused ? 'System paused.' : 'System resumed.';
+    }
+
+    function onKey(e) {
+      if (e.repeat) return;
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (gameOver) { resetGame(); return; }
+        overlay.classList.add('hidden');
+        doFlap();
+      } else if (e.code === 'KeyP') {
+        doPauseToggle();
+      } else if (e.code === 'Enter') {
+        if (gameOver) resetGame();
+      }
+    }
+
+    // Pointer controls
+    function onPointerDown() {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      doFlap();
+    }
+
+    btnStart.addEventListener('click', () => {
+      if (gameOver) { resetGame(); return; }
+      overlay.classList.add('hidden');
+      started = true;
+      doFlap();
+    });
+    btnPause.addEventListener('click', doPauseToggle);
+
+    window.addEventListener('keydown', onKey);
+    board.addEventListener('pointerdown', onPointerDown);
+
+    // Resize handling
+    const ro = new ResizeObserver(fitCanvas);
+    ro.observe(cvs);
+    window.addEventListener('orientationchange', fitCanvas);
+
+    // ----------------------
+    // Physics & collision
+    // ----------------------
+    function step(dt) {
+      // dt in seconds
+      if (!started || paused || gameOver) return;
+
+      // Bird physics
+      bird.vy += WORLD.gravity * dt;
+      bird.vy = clamp(bird.vy, -WORLD.termVel, WORLD.termVel);
+      bird.y += bird.vy * dt;
+
+      // Tilt based on velocity
+      bird.rot = clamp(bird.vy / WORLD.termVel, -1, 1) * 1.2;
+
+      // Wing anim decay
+      bird.flapAnim = Math.max(0, bird.flapAnim - dt * 3.2);
+
+      // Update trail
+      bird.trail.push({ x: bird.x, y: bird.y, alpha: 1 });
+      if (bird.trail.length > 15) bird.trail.shift();
+      bird.trail.forEach(t => t.alpha *= 0.92);
+
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 400 * dt; // gravity for particles
+        p.life -= dt * 2;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      // Spawn pipes
+      spawnT += dt * 1000;
+      if (spawnT > WORLD.pipeEvery) {
+        spawnT = 0;
+        spawnPipe();
+      }
+
+      // Move pipes & scoring
+      for (let i = pipes.length - 1; i >= 0; i--) {
+        const p = pipes[i];
+        p.x -= WORLD.scrollSpeed * dt;
+        // Offscreen cleanup
+        if (p.x + WORLD.pipeW < -10) {
+          pipes.splice(i, 1);
+          continue;
+        }
+        // Scoring when bird passes center of pair
+        if (!p.passed && p.x + WORLD.pipeW < bird.x) {
+          p.passed = true;
+          score++;
+          scoreEl.textContent = String(score);
+          live.textContent = `Data packets collected: ${score}`;
+          spawnParticles(bird.x, bird.y, 8);
+          SFX.score();
+        }
+      }
+
+      // Ground scroll
+      groundX = (groundX - WORLD.scrollSpeed * dt) % WORLD.w;
+
+      // Collisions with world bounds
+      const topBound = 0 + 2;
+      const bottomBound = WORLD.h - WORLD.groundH - 2;
+      if (bird.y - bird.r < topBound) {
+        bird.y = topBound + bird.r;
+        bird.vy = 0;
+      }
+      if (bird.y + bird.r > bottomBound) {
+        bird.y = bottomBound - bird.r;
+        endGame();
+        return;
+      }
+
+      // Collisions with pipes
+      // Bird approximated as circle, pipes as rects
+      for (const p of pipes) {
+        const bx = bird.x, by = bird.y, br = bird.r;
+        const Rx = p.x, Ry1 = 0, Rw = WORLD.pipeW;
+        const Rh1 = p.gapY - WORLD.pipeGap / 2;          // top pipe height
+        const Ry2 = p.gapY + WORLD.pipeGap / 2;          // bottom pipe y
+        const Rh2 = WORLD.h - WORLD.groundH - Ry2;       // bottom pipe height
+
+        if (circleRectCollide(bx, by, br, Rx, Ry1, Rw, Rh1) ||
+            circleRectCollide(bx, by, br, Rx, Ry2, Rw, Rh2)) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    function circleRectCollide(cx, cy, cr, rx, ry, rw, rh) {
+      const testX = clamp(cx, rx, rx + rw);
+      const testY = clamp(cy, ry, ry + rh);
+      const dx = cx - testX;
+      const dy = cy - testY;
+      return (dx * dx + dy * dy) <= cr * cr;
+    }
+
+    function endGame() {
+      if (gameOver) return;
+      gameOver = true;
+      started = false;
+      paused = false;
+      spawnParticles(bird.x, bird.y, 20);
+      SFX.hit();
+      live.textContent = `System crash! Data packets collected: ${score}.`;
+      if (score > hiscore) {
+        hiscore = score;
+        localStorage.setItem('cyberbird.hiscore', String(hiscore));
+        hiEl.textContent = hiscore;
+      }
+      showGameOverOverlay();
+    }
+
+    function showGameOverOverlay() {
+      // Fade-in overlay with final score
+      overlay.innerHTML = `
+        <div class="card">
+          <h2 class="title">System Crash</h2>
+          <p class="subtitle">Data Collected: <strong>${score}</strong> · Best Run: <strong>${hiscore}</strong></p>
+          <div class="kbd">Press <strong>Enter</strong> or click <strong>[ INIT ]</strong> to reboot</div>
+        </div>`;
+      overlay.classList.remove('hidden');
+    }
+
+    // ----------------------
+    // Rendering
+    // ----------------------
+    function draw() {
+      // Clear with dark background
+      ctx.fillStyle = '#0a0014';
+      ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+      // Cyberpunk city background
+      drawCityscape();
+
+      // Grid effect
+      drawGrid();
+
+      // Pipes (neon barriers)
+      for (const p of pipes) drawPipe(p);
+
+      // Particles
+      drawParticles();
+
+      // Ground (digital floor)
+      drawGround();
+
+      // Bird with trail
+      drawBirdTrail();
+      drawBird();
+    }
+
+    function drawCityscape() {
+      // Background buildings
+      ctx.fillStyle = '#1a0d26';
+      const buildings = [
+        { x: 0, w: 80, h: 400 },
+        { x: 100, w: 60, h: 320 },
+        { x: 180, w: 90, h: 450 },
+        { x: 290, w: 70, h: 380 },
+        { x: 380, w: 100, h: 420 },
+      ];
+      
+      buildings.forEach(b => {
+        const x = (b.x - groundX * 0.1) % (WORLD.w + 100);
+        ctx.fillRect(x, WORLD.h - WORLD.groundH - b.h, b.w, b.h);
+        
+        // Windows
+        ctx.fillStyle = '#ff00ff';
+        for (let wy = WORLD.h - WORLD.groundH - b.h + 20; wy < WORLD.h - WORLD.groundH - 20; wy += 30) {
+          for (let wx = x + 10; wx < x + b.w - 10; wx += 20) {
+            if (Math.random() > 0.3) {
+              ctx.globalAlpha = 0.3 + Math.random() * 0.5;
+              ctx.fillRect(wx, wy, 8, 12);
+            }
+          }
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#1a0d26';
+      });
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = '#ff00ff';
+      ctx.globalAlpha = 0.1;
+      ctx.lineWidth = 1;
+      
+      // Vertical lines
+      for (let x = (groundX * 0.5) % 40; x < WORLD.w; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, WORLD.h);
+        ctx.stroke();
+      }
+      
+      // Horizontal perspective lines
+      const horizon = WORLD.h * 0.4;
+      for (let y = horizon; y < WORLD.h - WORLD.groundH; y += (y - horizon) * 0.15 + 10) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(WORLD.w, y);
+        ctx.stroke();
+      }
+      
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPipe(p) {
+      const x = Math.round(p.x) + 0.5;
+      const w = WORLD.pipeW;
+      const gapY = p.gapY;
+      const gap = WORLD.pipeGap;
+      const topH = gapY - gap / 2;
+      const botY = gapY + gap / 2;
+      const botH = (WORLD.h - WORLD.groundH) - botY;
+
+      const drawBarrier = (rx, ry, rw, rh, isTop) => {
+        // Neon barrier gradient
+        const grad = ctx.createLinearGradient(rx, ry, rx + rw, ry);
+        grad.addColorStop(0, '#ff00ff');
+        grad.addColorStop(0.5, '#ff10f0');
+        grad.addColorStop(1, '#ff00ff');
+        
+        // Main body
+        ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+        ctx.fillRect(rx, ry, rw, rh);
+        
+        // Neon edges
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(rx, ry, rw, rh);
+        
+        // Energy lines
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.6;
+        for (let i = 0; i < 5; i++) {
+          const y1 = ry + (rh / 5) * i + (performance.now() * 0.001 * (i + 1)) % (rh / 5);
+          ctx.beginPath();
+          ctx.moveTo(rx, y1);
+          ctx.lineTo(rx + rw, y1);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        
+        // Warning stripes at edges
+        ctx.fillStyle = '#ffff00';
+        ctx.globalAlpha = 0.5;
+        const stripeH = 15;
+        if (isTop) {
+          ctx.fillRect(rx - 3, ry + rh - stripeH, rw + 6, stripeH);
+        } else {
+          ctx.fillRect(rx - 3, ry, rw + 6, stripeH);
+        }
+        ctx.globalAlpha = 1;
+      };
+
+      // Top barrier
+      drawBarrier(x, 0, w, topH, true);
+      // Bottom barrier
+      drawBarrier(x, botY, w, botH, false);
+    }
+
+    function drawGround() {
+      const y = WORLD.h - WORLD.groundH;
+      
+      // Digital floor base
+      const grad = ctx.createLinearGradient(0, y, 0, WORLD.h);
+      grad.addColorStop(0, '#2d1b69');
+      grad.addColorStop(1, '#1a0d26');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, y, WORLD.w, WORLD.groundH);
+      
+      // Tech pattern
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.3;
+      for (let i = 0; i < WORLD.w; i += 30) {
+        const x = (i + Math.floor(groundX)) % WORLD.w;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 15, y + 20);
+        ctx.lineTo(x + 15, y + 40);
+        ctx.stroke();
+      }
+      
+      // Data stream lines
+      ctx.strokeStyle = '#ff00ff';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.5;
+      for (let i = 0; i < 3; i++) {
+        const yPos = y + 30 + i * 20;
+        ctx.beginPath();
+        ctx.moveTo(0, yPos);
+        ctx.lineTo(WORLD.w, yPos);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = p.color;
+        ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+      });
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    }
+
+    function drawBirdTrail() {
+      bird.trail.forEach((t, i) => {
+        ctx.globalAlpha = t.alpha * 0.5;
+        const size = (i / bird.trail.length) * bird.r;
+        
+        // Glow effect
+        const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, size);
+        grad.addColorStop(0, '#00ffff');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawBird() {
+      const x = Math.round(bird.x) + 0.5;
+      const y = Math.round(bird.y) + 0.5;
+      const r = bird.r;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(bird.rot);
+
+      // Cyber bird body (triangular/angular design)
+      const bodyR = r;
+      
+      // Main body - angular shape
+      ctx.fillStyle = '#00ffff';
+      ctx.strokeStyle = '#ff00ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.8, -r * 0.6);
+      ctx.lineTo(r * 1.2, 0);
+      ctx.lineTo(-r * 0.8, r * 0.6);
+      ctx.lineTo(-r, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Energy core
+      const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.6);
+      coreGrad.addColorStop(0, '#ffffff');
+      coreGrad.addColorStop(0.5, '#ff00ff');
+      coreGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Thruster effect (flap animation)
+      if (bird.flapAnim > 0) {
+        const flap = easeOut(bird.flapAnim);
+        ctx.globalAlpha = flap;
+        const thrustGrad = ctx.createLinearGradient(-r, 0, -r * 2, 0);
+        thrustGrad.addColorStop(0, '#ff00ff');
+        thrustGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = thrustGrad;
+        ctx.beginPath();
+        ctx.moveTo(-r, -r * 0.3);
+        ctx.lineTo(-r * (1 + flap * 1.5), 0);
+        ctx.lineTo(-r, r * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      
+      // Eye (scanner)
+      ctx.fillStyle = '#ff0000';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#ff0000';
+      ctx.beginPath();
+      ctx.arc(r * 0.4, 0, r * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.restore();
+    }
+
+    // ----------------------
+    // Main loop
+    // ----------------------
+    function loop(t) {
+      if (!lastT) lastT = t;
+      const dt = clamp((t - lastT) / 1000, 0, 1/20); // cap dt for stability
+      lastT = t;
+
+      step(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ----------------------
+    // Boot
+    // ----------------------
+    function boot() {
+      fitCanvas();
+      resetGame();
+      requestAnimationFrame(loop);
+    }
+
+    // Initial overlay content (resetGame will set it at start too)
+    overlay.classList.remove('hidden');
+
+    // Kick things off when ready
+    window.addEventListener('load', boot, { once: true });
+  </script>
+</body>
+</html>
