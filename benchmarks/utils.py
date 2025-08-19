@@ -15,12 +15,24 @@ import random
 from benchmarks.prompts import JUDGMENT_PROMPT, get_full_file_prompt
 from google import genai
 from google.genai import types
+import tiktoken
 
 
 dotenv.load_dotenv()
 api_key = os.getenv("ANTHROPIC_API_KEY")
 
 client = anthropic.Anthropic(api_key=api_key)
+
+def count_tokens(text: str) -> int:
+    """
+    Count tokens in text using tiktoken.
+    Uses cl100k_base encoding for consistent counting across all models.
+    """
+    try:
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+    except Exception:
+        return len(text) // 4
 
 client_morph = OpenAI(
     api_key=os.getenv("MORPH_API_KEY"),
@@ -142,7 +154,9 @@ def get_single_turn_morph_edit(
             tool_call = json.loads(
                 response.choices[0].message.tool_calls[0].function.arguments
             )
-            return tool_call
+            # Count tokens in the visible output (the tool call JSON)
+            token_count = count_tokens(json.dumps(tool_call))
+            return tool_call, token_count
         else:
             raise ValueError("No tool call in OpenAI response")
     elif "gemini" in model_id:
@@ -179,7 +193,9 @@ def get_single_turn_morph_edit(
                     args = json.loads(args)
                 except Exception:
                     pass
-            return args
+            # Count tokens in the visible output (the tool call JSON)
+            token_count = count_tokens(json.dumps(args))
+            return args, token_count
         raise ValueError("No tool call in Gemini response")
     else:
         stream, wait_time_ms = _retry_on_429(
@@ -218,8 +234,9 @@ def get_single_turn_morph_edit(
             actual_time = (stream_end - stream_start) * 1000 - wait_time_ms
 
         tool_call = json.loads(json_string)
-        # Return the tool call along with the actual generation time (excluding wait time)
-        return tool_call
+        # Count tokens in the visible output (the tool call JSON)
+        token_count = count_tokens(json.dumps(tool_call))
+        return tool_call, token_count
 
 
 def apply_morph_edit(edit, initial_code):
@@ -346,7 +363,7 @@ def get_full_file_generation(
             "messages": [{"role": "user", "content": prompt}],
         }
         # Only set temperature for models that support it
-        if not (model_id in ["o3", "o4-mini"]):
+        if not (model_id in ["o3", "o4-mini", "gpt-5"]):
             kwargs["temperature"] = 0
 
         response, wait_time_ms = _retry_on_429(
@@ -357,11 +374,8 @@ def get_full_file_generation(
             time.time() - generation_start
         ) * 1000 - wait_time_ms  # ms, excluding wait time
         edited_content = response.choices[0].message.content
-        total_tokens = (
-            response.usage.total_tokens
-            if hasattr(response, "usage")
-            else len(edited_content) // 4
-        )
+        # Count tokens in the visible output (generated file content)
+        total_tokens = count_tokens(edited_content)
 
     elif "gemini" in model_id:
         genai_client = genai.Client()
@@ -380,11 +394,11 @@ def get_full_file_generation(
             if hasattr(response, "text")
             else response.candidates[0].content.parts[0].text
         )
-        total_tokens = len(edited_content) // 4  # Rough estimate
+        # Count tokens in the visible output (generated file content)
+        total_tokens = count_tokens(edited_content)
 
     else:  # Claude - use streaming for full file generation
         edited_content = ""
-        total_tokens = 0
 
         # Use streaming to avoid timeout for long responses
         stream, wait_time_ms = _retry_on_429(
@@ -400,21 +414,13 @@ def get_full_file_generation(
                 delta = event.delta
                 if hasattr(delta, "text") and delta.text:
                     edited_content += delta.text
-            # Track usage from final message if available
-            if hasattr(event, "message"):
-                message = event.message
-                if hasattr(message, "usage"):
-                    total_tokens = (
-                        message.usage.input_tokens + message.usage.output_tokens
-                    )
 
         generation_time = (
             time.time() - generation_start
         ) * 1000 - wait_time_ms  # ms, excluding wait time
 
-        # Fallback token estimate if not provided
-        if total_tokens == 0:
-            total_tokens = len(prompt) // 4 + len(edited_content) // 4
+        # Count tokens in the visible output (generated file content)
+        total_tokens = count_tokens(edited_content)
 
     return {
         "edited_content": edited_content,
@@ -515,12 +521,12 @@ def get_multi_turn_edit(
     Used in multi-turn mode for iterative editing with conversation context.
     Returns: (tool_call, tokens, generation_time_ms_excluding_wait)"""
     if edit_type == "morph":
-        tool = MORPH_TOOL_MULTI
+        tool = MORPH_TOOL
         if is_first:
             system_prompt = (
-                "You will produce a comprehensive single edit to satisfy the user's prompt.\n"
-                "Make all necessary changes in a SINGLE edit_file tool call with one complete code_edit.\n"
-                "Only make the minimal changes required. If the minimum requirement is already met by the current file, do not call any tool.\n\n"
+                "You will produce a comprehensive edit to satisfy the user's prompt.\n"
+                "Make all necessary changes in a SINGLE edit_file tool call with a code_edit that addresses all parts of the user prompt, failing to do this will result in the user waiting longer\n"
+                "Aim to make all edits required to satisfy the users request. The file will be shown to you again for verification/further edits regardless\n\n"
             )
             prompt = f"User prompt: {request}\n\nFile content:\n{file_contents}"
         else:
@@ -582,15 +588,17 @@ def get_multi_turn_edit(
             tool_call = json.loads(
                 response.choices[0].message.tool_calls[0].function.arguments
             )
+            # Count tokens in the visible output
+            token_count = count_tokens(json.dumps(tool_call))
             return (
                 tool_call,
-                response.usage.total_tokens if hasattr(response, "usage") else 0,
+                token_count,
                 actual_time,
             )
         else:
             return (
                 None,
-                response.usage.total_tokens if hasattr(response, "usage") else 0,
+                0,
                 actual_time,
             )
 
@@ -618,8 +626,8 @@ def get_multi_turn_edit(
                     args = json.loads(args)
                 except Exception:
                     pass
-            # Estimate tokens for Gemini
-            token_count = len(json.dumps(args)) // 4
+            # Count tokens in the visible output
+            token_count = count_tokens(json.dumps(args))
             actual_time = (time.time() - start_time) * 1000 - wait_time_ms
             return args, token_count, actual_time
         actual_time = (time.time() - start_time) * 1000 - wait_time_ms
@@ -637,7 +645,6 @@ def get_multi_turn_edit(
         )
 
         json_string = ""
-        token_count = 0
 
         for event in stream:
             delta = getattr(event, "delta", None)
@@ -649,11 +656,13 @@ def get_multi_turn_edit(
             partial_json = getattr(delta, "partial_json", None)
             if partial_json is not None:
                 json_string += partial_json
-                token_count += len(partial_json) // 4  # Rough estimate
                 continue
 
         actual_time = (time.time() - start_time) * 1000 - wait_time_ms
 
         if json_string:
-            return json.loads(json_string), token_count, actual_time
-        return None, token_count, actual_time
+            tool_call = json.loads(json_string)
+            # Count tokens in the visible output
+            token_count = count_tokens(json.dumps(tool_call))
+            return tool_call, token_count, actual_time
+        return None, 0, actual_time

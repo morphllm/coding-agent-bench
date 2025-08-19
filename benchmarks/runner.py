@@ -26,12 +26,14 @@ class BenchmarkRunner:
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
 
+        self.single_turn = self.config.get("single_turn", False)
+        test_type = "single_turn" if self.single_turn else "multi_turn"
         self.metrics_collector = MetricsCollector(
-            output_dir=self.config.get("output_dir", "results/")
+            output_dir=self.config.get("output_dir", "results/"),
+            test_type=test_type
         )
 
         self.corpus_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.single_turn = self.config.get("single_turn", False)
 
     def run_all_benchmarks(self):
         models = self.config.get("models", [])
@@ -174,7 +176,7 @@ class BenchmarkRunner:
                 generation_timer = Timer()
                 generation_timer.start()
 
-                edit_response = get_single_turn_morph_edit(
+                edit_response, total_tokens = get_single_turn_morph_edit(
                     file_contents, query["prompt"], model["model_id"]
                 )
 
@@ -185,9 +187,6 @@ class BenchmarkRunner:
                 edited_content, apply_time = apply_morph_edit(
                     edit_response, file_contents
                 )
-
-                # Get total tokens from the response if available, else estimate
-                total_tokens = len(json.dumps(edit_response)) // 4  # Rough estimate
                 iterations = 1  # Single-turn mode has 1 iteration
 
             # Verification only runs once after all edits are complete
@@ -207,6 +206,7 @@ class BenchmarkRunner:
                 response_data=json.dumps(edit_response),
                 is_correct=is_correct,
                 iterations=iterations,
+                edited_content=edited_content,
             )
 
             self.metrics_collector.add_result(result)
@@ -274,6 +274,7 @@ class BenchmarkRunner:
                 response_data=json.dumps(edit_response),
                 is_correct=is_correct,
                 iterations=iterations,
+                edited_content=edited_content,
             )
 
             self.metrics_collector.add_result(result)
@@ -325,6 +326,7 @@ class BenchmarkRunner:
                 response_data=json.dumps(result["response_data"]),
                 is_correct=is_correct,
                 iterations=1,  # Full file generation is always single-turn
+                edited_content=edited_content,
             )
 
             self.metrics_collector.add_result(result_obj)
